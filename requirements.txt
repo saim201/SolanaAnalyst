@@ -1,0 +1,25 @@
+# Core dependencies
+anthropic>=0.39.0
+pandas>=1.5.0
+numpy>=1.24.0,<2.0  # Pin to 1.x for compatibility
+tenacity>=8.0.0
+python-dateutil>=2.8.0
+python-dotenv>=1.0.0
+
+# LangGraph and LangChain
+langgraph>=0.2.0
+langchain-anthropic>=0.1.0
+langchain-core>=0.2.0
+
+# FastAPI (optional - for API server)
+fastapi>=0.110.0
+uvicorn>=0.27.0
+pydantic>=2.0.0
+
+# Data Fetching
+requests
+feedparser
+
+# Database
+sqlalchemy
+psycopg2-binary
