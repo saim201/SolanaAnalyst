@@ -1,15 +1,19 @@
 
 import os
+from pathlib import Path
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 from dotenv import load_dotenv
+from sqlalchemy.orm import declarative_base
 
-load_dotenv()
-
-Base = declarative_base()
+# Load .env from backend directory
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(env_path)
 
 DATABASE_URL = os.getenv('DATABASE_URL')
+
+Base = declarative_base()
 
 engine = create_engine(
     DATABASE_URL,
@@ -30,25 +34,3 @@ def get_db_session():
     except Exception as e:
         db.close()
         raise e
-
-
-def init_db():
-    from .models import PriceData, TransactionData, NewsData
-
-    print("🔧 Creating database tables...")
-    Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully")
-
-
-def test_connection():
-    try:
-        with engine.connect() as conn:
-            print("✅ Database connection successful")
-            return True
-    except Exception as e:
-        print(f"❌ Database connection failed: {e}")
-        return False
-    
-
-if __name__ == "__main__":
-    test_connection()
