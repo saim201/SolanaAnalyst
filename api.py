@@ -22,7 +22,7 @@ app.add_middleware(
         "http://localhost:3000", 
         "http://localhost:5173", 
         "http://localhost:5174",
-         "https://your-netlify-domain.netlify.app",  
+        "https://solanaanalyst.netlify.app",  
         ],
     allow_credentials=True,
     allow_methods=["*"],

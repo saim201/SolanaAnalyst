@@ -1,7 +1,4 @@
-"""
-Load CSV data into PostgreSQL database
-Simple script to sync CSV files to database
-"""
+
 import os
 import sys
 import pandas as pd
