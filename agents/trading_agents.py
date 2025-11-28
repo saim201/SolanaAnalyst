@@ -8,7 +8,30 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import llm
 import config
 from agents.db_fetcher import DataQuery
+from database.config import get_db_session
+from database.models import TradeDecision
 
+
+def fetch_trade_history_from_db(limit: int = 10) -> str:
+    try:
+        db = get_db_session()
+        trades = db.query(TradeDecision).order_by(TradeDecision.timestamp.desc()).limit(limit).all()
+        db.close()
+
+        if not trades:
+            return "No trading history yet. Starting fresh."
+
+        # Format trades in reverse chronological order (oldest to newest)
+        trades = list(reversed(trades))
+
+        history_text = "TRADE HISTORY:\n"
+        for i, trade in enumerate(trades, 1):
+            history_text += f"{i}. [{trade.timestamp.strftime('%Y-%m-%d %H:%M')}] {trade.decision.upper()} (Confidence: {trade.confidence*100:.0f}%, Action: {trade.action:.2f}) - {trade.reasoning}\n"
+
+        return history_text
+    except Exception as e:
+        print(f"Error fetching trade history: {str(e)}")
+        return "No trading history yet. Starting fresh."
 
 
 class TradingState(TypedDict):
@@ -31,7 +54,7 @@ class TradingState(TypedDict):
     action: float  # -1.0 to 1.0
 
 
-# Enhanced Prompt Templates
+
 ONCHAIN_PROMPT = """You are an expert Solana (SOL) on-chain analyst.
 
 MARKET DATA:
@@ -84,13 +107,13 @@ CURRENT PORTFOLIO:
 
 ANALYSIS FROM YOUR TEAM:
 
-📊 ON-CHAIN ANALYST:
+ON-CHAIN ANALYST:
 {onchain_analysis}
 
-📰 NEWS ANALYST:
+NEWS ANALYST:
 {news_analysis}
 
-🔍 REFLECTION ANALYST:
+REFLECTION ANALYST:
 {reflection_analysis}
 
 TASK: Synthesize all analyses and make a clear trading decision.
@@ -118,44 +141,43 @@ class TradingGraph:
 
         analysis = llm(prompt, config.MODELS['onchain']).strip()
 
-        print("\n📊 ON-CHAIN ANALYST:")
+        print("\n ON-CHAIN ANALYST:")
         print(analysis)
 
         state['onchain_analysis'] = analysis
         return state
 
     def _news_analyst(self, state: TradingState) -> TradingState:
-        """News analysis using fast model"""
         if not state['news_data'] or state['news_data'] == "No news available":
             analysis = "No significant news to report."
         else:
             prompt = NEWS_PROMPT.format(news_data=state['news_data'])
             analysis = llm(prompt, config.MODELS['news']).strip()
 
-        print("\n📰 NEWS ANALYST:")
+        print("\n NEWS ANALYST:")
         print(analysis)
 
         state['news_analysis'] = analysis
         return state
 
     def _reflection_analyst(self, state: TradingState) -> TradingState:
-        """Reflection analysis using fast model"""
-        if not state['trading_history']:
-            analysis = "No trading history yet. Starting with balanced approach."
-        else:
+        trading_history = state['trading_history']
+
+        if trading_history and trading_history != "No trading history yet. Starting fresh.":
             prompt = REFLECTION_PROMPT.format(
-                trading_history=state['trading_history']
+                trading_history=trading_history
             )
             analysis = llm(prompt, config.MODELS['reflection']).strip()
+        else:
+            analysis = "No trading history yet. Starting with balanced, data-driven approach."
 
-        print("\n🔍 REFLECTION ANALYST:")
+        print("\n REFLECTION ANALYST:")
         print(analysis)
 
         state['reflection_analysis'] = analysis
         return state
 
     def _trader(self, state: TradingState) -> TradingState:
-        """Final decision using best model"""
         prompt = TRADER_PROMPT.format(
             current_state=state['current_state'],
             onchain_analysis=state['onchain_analysis'],
@@ -188,7 +210,7 @@ class TradingGraph:
                 except:
                     action = 0.0
 
-        print("\n💼 TRADER DECISION:")
+        print("\n TRADER DECISION:")
         print(f"Reasoning: {reasoning}")
         print(f"Decision: {decision.upper()}")
         print(f"Confidence: {confidence:.2f}")
@@ -219,17 +241,23 @@ class TradingGraph:
 
         return workflow
 
+
+
     def run(self, price_data: str = None, txn_data: str = None, news_data: str = None,
             trading_history: str = "", current_state: str = "Starting position") -> TradingState:
 
         if price_data is None or txn_data is None or news_data is None:
             with DataQuery() as dq:
-                price_data = dq.get_price_data(days=30)
-                txn_data = dq.get_transaction_data(days=30)
-                news_data = dq.get_news_data(days=30)
+                price_data = dq.get_price_data_sliced()
+                txn_data = dq.get_transaction_data_sliced()
+                news_data = dq.get_news_data_sliced()
+
+        # Fetch trading history from database if not provided
+        if not trading_history:
+            trading_history = fetch_trade_history_from_db(limit=10)
 
         print("\n" + "="*80)
-        print("🤖 TRADING SYSTEM")
+        print(" Starting")
         print("="*80)
 
         initial_state: TradingState = {

@@ -4,11 +4,14 @@ from pydantic import BaseModel
 from datetime import datetime
 import sys
 import os
+import uuid
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from agents.trading_agents import TradingGraph
 from agents.db_fetcher import DataQuery
+from database.config import get_db_session
+from database.models import AgentAnalysis, TradeDecision
 
 app = FastAPI(
     title="Solana Trading Agent API",
@@ -67,11 +70,39 @@ def health():
         "service": "trading-agent"
     }
 
-@app.post("/api/trade/analyze", response_model=TradeAnalysisResponse)
+
+
+@app.post("/api/sol/analyse", response_model=TradeAnalysisResponse)
 def analyze_trade():
+    db = None
     try:
+        run_id = str(uuid.uuid4())
+
         graph = TradingGraph()
         result = graph.run()
+
+        db = get_db_session()
+
+        agent_analysis = AgentAnalysis(
+            run_id=run_id,
+            onchain_analysis=result.get('onchain_analysis', ''),
+            news_analysis=result.get('news_analysis', ''),
+            reflection_analysis=result.get('reflection_analysis', ''),
+            timestamp=datetime.now()
+        )
+        db.add(agent_analysis)
+        db.flush()  # Flush to get the analysis.id
+
+        trade_decision = TradeDecision(
+            analysis_id=agent_analysis.id,
+            decision=result.get('decision', 'hold'),
+            confidence=float(result.get('confidence', 0.5)),
+            action=float(result.get('action', 0.0)),
+            reasoning=result.get('reasoning', ''),
+            timestamp=datetime.now()
+        )
+        db.add(trade_decision)
+        db.commit()
 
         return TradeAnalysisResponse(
             decision=result.get('decision', 'hold'),
@@ -83,8 +114,46 @@ def analyze_trade():
             reflection_analysis=result.get('reflection_analysis', ''),
             timestamp=datetime.now().isoformat()
         )
+    
     except Exception as e:
+        if db:
+            db.rollback()
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+    finally:
+        if db:
+            db.close()
+
+
+@app.get("/api/trades/history")
+def get_trades_history(limit: int = 10):
+    db = None
+    try:
+        db = get_db_session()
+        trades = db.query(TradeDecision).order_by(TradeDecision.timestamp.desc()).limit(limit).all()
+        trades_list = [
+            {
+                "id": trade.id,
+                "decision": trade.decision,
+                "confidence": trade.confidence,
+                "action": trade.action,
+                "reasoning": trade.reasoning,
+                "timestamp": trade.timestamp.isoformat()
+            }
+            for trade in trades
+        ]
+
+        return {
+            "trades": trades_list,
+            "total_trades": len(trades_list),
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
+    finally:
+        if db:
+            db.close()
+
 
 @app.get("/api/market/data", response_model=MarketDataResponse)
 def get_market_data(days: int = 30):
@@ -102,6 +171,8 @@ def get_market_data(days: int = 30):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch market data: {str(e)}")
 
+
+
 @app.get("/api/portfolio/status")
 def get_portfolio_status():
     try:
@@ -116,16 +187,7 @@ def get_portfolio_status():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch portfolio: {str(e)}")
 
-@app.get("/api/trades/history")
-def get_trades_history(limit: int = 10):
-    try:
-        return {
-            "trades": [],
-            "total_trades": 0,
-            "timestamp": datetime.now().isoformat()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn
