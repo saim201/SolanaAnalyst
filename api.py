@@ -73,7 +73,7 @@ def health():
 
 
 @app.post("/api/sol/analyse", response_model=TradeAnalysisResponse)
-def analyze_trade():
+def analyse_trade():
     db = None
     try:
         run_id = str(uuid.uuid4())
@@ -122,6 +122,22 @@ def analyze_trade():
     finally:
         if db:
             db.close()
+
+
+@app.get("/api/lastTrade")
+def get_last_trade_decision():
+    db = None
+    try:
+        db = get_db_session()
+        last_trade = db.query(TradeDecision).order_by(TradeDecision.timestamp.desc()).first()
+        return last_trade
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch the last trade decision {str(e)}")
+    finally:
+        if db:
+            db.close()
+
+    
 
 
 @app.get("/api/trades/history")
