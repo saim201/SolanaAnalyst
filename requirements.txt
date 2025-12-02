@@ -23,3 +23,6 @@ feedparser
 # Database
 sqlalchemy
 psycopg2-binary
+
+# Background Scheduling
+apscheduler

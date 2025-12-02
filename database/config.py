@@ -1,17 +1,17 @@
-
 import os
+import sys
 from pathlib import Path
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import QueuePool
 from dotenv import load_dotenv
-from sqlalchemy.orm import declarative_base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import QueuePool
 
-# Load .env from backend directory
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(env_path)
 
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 DATABASE_URL = os.getenv('DATABASE_URL')
+SOLSCAN_API_KEY = os.getenv('SOLSCAN_API_KEY')
 
 Base = declarative_base()
 
@@ -25,7 +25,6 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 
 def get_db_session():
     db = SessionLocal()

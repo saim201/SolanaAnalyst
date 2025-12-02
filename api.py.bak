@@ -45,14 +45,14 @@ class TradeAnalysisResponse(BaseModel):
     confidence: float
     action: float
     reasoning: str
-    technical_analysis: str
+    onchain_analysis: str
     news_analysis: str
     reflection_analysis: str
     timestamp: str
 
 class MarketDataResponse(BaseModel):
     price_data: str
-    indicators: str
+    txn_data: str
     news_data: str
 
 class PortfolioStatusResponse(BaseModel):
@@ -99,7 +99,7 @@ def analyse_trade():
 
         agent_analysis = AgentAnalysis(
             run_id=run_id,
-            technical_analysis=result.get('technical_analysis', ''),
+            onchain_analysis=result.get('onchain_analysis', ''),
             news_analysis=result.get('news_analysis', ''),
             reflection_analysis=result.get('reflection_analysis', ''),
             timestamp=datetime.now()
@@ -123,7 +123,7 @@ def analyse_trade():
             confidence=float(result.get('confidence', 0.5)),
             action=float(result.get('action', 0.0)),
             reasoning=result.get('reasoning', ''),
-            technical_analysis=result.get('technical_analysis', ''),
+            onchain_analysis=result.get('onchain_analysis', ''),
             news_analysis=result.get('news_analysis', ''),
             reflection_analysis=result.get('reflection_analysis', ''),
             timestamp=datetime.now().isoformat()
@@ -189,13 +189,13 @@ def get_trades_history(limit: int = 10):
 def get_market_data(days: int = 30):
     try:
         with DataQuery() as dq:
-            price_data = dq.get_indicators_data(days=days)
-            indicators = dq.get_transaction_data(days=days)
+            price_data = dq.get_price_data(days=days)
+            txn_data = dq.get_transaction_data(days=days)
             news_data = dq.get_news_data(days=days)
 
         return MarketDataResponse(
             price_data=price_data,
-            indicators=txn_data,
+            txn_data=txn_data,
             news_data=news_data
         )
     except Exception as e:
