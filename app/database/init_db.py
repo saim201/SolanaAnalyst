@@ -19,7 +19,10 @@ def test_connection():
 
 
 def init_db():
-    from .models import PriceData, NewsData, CandlestickData
+    from .models import (
+        NewsData, CandlestickData, CandlestickIntradayModel,
+        IndicatorsData, TickerModel, AgentAnalysis, TradeDecision, PortfolioState
+    )
 
     print(f"DEBUG: Base.metadata.tables = {list(Base.metadata.tables.keys())}")
     Base.metadata.create_all(bind=engine)

@@ -5,12 +5,13 @@ import pandas as pd
 from datetime import datetime
 from typing import List, Dict
 from sqlalchemy.dialects.postgresql import insert
-from database.models import PriceData, NewsData, CandlestickData, TickerModel, CandlestickIntradayModel
+from database.models import NewsData, CandlestickData, TickerModel, CandlestickIntradayModel
 from database.config import get_db_session
 
 
 class DataManager:
-
+    def __init__(self):
+        self.db = get_db_session()
 
     def save_tikcer_db(self, df: pd.DataFrame) -> int:
         records = []
@@ -132,59 +133,17 @@ class DataManager:
         return len(records)
 
 
-    def save_price_data(self, df: pd.DataFrame) -> int:
-        print(f" Saving {len(df)} price records to database...")
-
-        records = []
-        for _, row in df.iterrows():
-            record = {
-                'timestamp': row['timestamp'],
-                'open': float(row['price']),
-                'high': float(row['price']),
-                'low': float(row['price']),
-                'close': float(row['price']),
-                'volume': int(row['volume']),
-                'market_cap': int(row['market_cap']) if pd.notna(row.get('market_cap')) else None,
-                'circulating_supply': int(row['circulating_supply']) if pd.notna(row.get('circulating_supply')) else None,
-                'total_supply': int(row['total_supply']) if pd.notna(row.get('total_supply')) else None,
-                'max_supply': int(row['max_supply']) if pd.notna(row.get('max_supply')) else None,
-                'fdv': int(row['fdv']) if pd.notna(row.get('fdv')) else None,
-                'price_change_24h': float(row['price_change_24h']) if pd.notna(row.get('price_change_24h')) else None,
-            }
-            records.append(record)
-
-        stmt = insert(PriceData).values(records)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=['timestamp'],
-            set_={
-                'open': stmt.excluded.open,
-                'high': stmt.excluded.high,
-                'low': stmt.excluded.low,
-                'close': stmt.excluded.close,
-                'volume': stmt.excluded.volume,
-                'market_cap': stmt.excluded.market_cap,
-                'circulating_supply': stmt.excluded.circulating_supply,
-                'total_supply': stmt.excluded.total_supply,
-                'max_supply': stmt.excluded.max_supply,
-                'fdv': stmt.excluded.fdv,
-                'price_change_24h': stmt.excluded.price_change_24h,
-            }
-        )
-
-        self.db.execute(stmt)
-        self.db.commit()
-
-        print(f"✅ Saved {len(records)} price records")
-        return len(records)
-
     def save_news_data(self, articles: List[Dict]) -> int:
-        print(f"💾 Saving {len(articles)} news articles to database...")
-
         records = []
         for article in articles:
             published_at = article['published_at']
             if isinstance(published_at, str):
                 published_at = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+
+
+            sentiment = article.get('sentiment')
+            if sentiment is None or (isinstance(sentiment, float) and pd.isna(sentiment)):
+                sentiment = None
 
             record = {
                 'title': article['title'][:500],
@@ -192,7 +151,8 @@ class DataManager:
                 'source': article['source'][:200],
                 'published_at': published_at,
                 'content': article.get('content'),
-                'sentiment': article.get('sentiment'),
+                'sentiment': sentiment,
+                'priority': article.get('priority'),
             }
             records.append(record)
 
@@ -205,6 +165,7 @@ class DataManager:
                 'published_at': stmt.excluded.published_at,
                 'content': stmt.excluded.content,
                 'sentiment': stmt.excluded.sentiment,
+                'priority': stmt.excluded.priority,
             }
         )
 
@@ -214,16 +175,11 @@ class DataManager:
         print(f"✅ Saved {len(records)} news articles")
         return len(records)
 
-    def get_latest_price_date(self):
-        result = self.db.query(PriceData).order_by(PriceData.timestamp.desc()).first()
-        return result.timestamp if result else None
-
     def get_latest_news_date(self):
         result = self.db.query(NewsData).order_by(NewsData.published_at.desc()).first()
         return result.published_at if result else None
 
     def save_indicators(self, timestamp: datetime, indicators: Dict) -> int:
-        """Save calculated indicators to database"""
         print(f"💾 Saving indicators for {timestamp}...")
 
         from database.models import IndicatorsData
@@ -237,13 +193,11 @@ class DataManager:
             'macd_signal': indicators.get('macd_signal'),
             'macd_histogram': indicators.get('macd_histogram'),
             'rsi14': indicators.get('rsi14'),
+            'rsi_divergence_type': indicators.get('rsi_divergence_type'),
+            'rsi_divergence_strength': indicators.get('rsi_divergence_strength'),
             'bb_upper': indicators.get('bb_upper'),
-            'bb_middle': indicators.get('bb_middle'),
             'bb_lower': indicators.get('bb_lower'),
-            'bb_width': indicators.get('bb_width'),
-            'bb_position': indicators.get('bb_position'),
             'atr': indicators.get('atr'),
-            'volatility_percent': indicators.get('volatility_percent'),
             'volume_ma20': indicators.get('volume_ma20'),
             'volume_current': indicators.get('volume_current'),
             'volume_ratio': indicators.get('volume_ratio'),
@@ -251,26 +205,16 @@ class DataManager:
             'support1_percent': indicators.get('support1_percent'),
             'support2': indicators.get('support2'),
             'support2_percent': indicators.get('support2_percent'),
-            'support3': indicators.get('support3'),
-            'support3_percent': indicators.get('support3_percent'),
             'resistance1': indicators.get('resistance1'),
             'resistance1_percent': indicators.get('resistance1_percent'),
             'resistance2': indicators.get('resistance2'),
             'resistance2_percent': indicators.get('resistance2_percent'),
-            'resistance3': indicators.get('resistance3'),
-            'resistance3_percent': indicators.get('resistance3_percent'),
-            'fib_level_0': indicators.get('fib_level_0'),
-            'fib_level_236': indicators.get('fib_level_236'),
             'fib_level_382': indicators.get('fib_level_382'),
-            'fib_level_500': indicators.get('fib_level_500'),
             'fib_level_618': indicators.get('fib_level_618'),
-            'fib_level_786': indicators.get('fib_level_786'),
-            'fib_level_100': indicators.get('fib_level_100'),
-            'pivot': indicators.get('pivot'),
-            'pivot_s1': indicators.get('pivot_s1'),
-            'pivot_s2': indicators.get('pivot_s2'),
-            'pivot_r1': indicators.get('pivot_r1'),
-            'pivot_r2': indicators.get('pivot_r2'),
+            'pivot_weekly': indicators.get('pivot_weekly'),
+            'momentum_24h': indicators.get('momentum_24h'),
+            'range_position_24h': indicators.get('range_position_24h'),
+            'volume_surge_24h': indicators.get('volume_surge_24h'),
         }
 
         stmt = insert(IndicatorsData).values(record)
@@ -284,13 +228,11 @@ class DataManager:
                 'macd_signal': stmt.excluded.macd_signal,
                 'macd_histogram': stmt.excluded.macd_histogram,
                 'rsi14': stmt.excluded.rsi14,
+                'rsi_divergence_type':stmt.excluded.rsi_divergence_type ,
+                'rsi_divergence_strength': stmt.excluded.rsi_divergence_strength,
                 'bb_upper': stmt.excluded.bb_upper,
-                'bb_middle': stmt.excluded.bb_middle,
                 'bb_lower': stmt.excluded.bb_lower,
-                'bb_width': stmt.excluded.bb_width,
-                'bb_position': stmt.excluded.bb_position,
                 'atr': stmt.excluded.atr,
-                'volatility_percent': stmt.excluded.volatility_percent,
                 'volume_ma20': stmt.excluded.volume_ma20,
                 'volume_current': stmt.excluded.volume_current,
                 'volume_ratio': stmt.excluded.volume_ratio,
@@ -298,26 +240,16 @@ class DataManager:
                 'support1_percent': stmt.excluded.support1_percent,
                 'support2': stmt.excluded.support2,
                 'support2_percent': stmt.excluded.support2_percent,
-                'support3': stmt.excluded.support3,
-                'support3_percent': stmt.excluded.support3_percent,
                 'resistance1': stmt.excluded.resistance1,
                 'resistance1_percent': stmt.excluded.resistance1_percent,
                 'resistance2': stmt.excluded.resistance2,
                 'resistance2_percent': stmt.excluded.resistance2_percent,
-                'resistance3': stmt.excluded.resistance3,
-                'resistance3_percent': stmt.excluded.resistance3_percent,
-                'fib_level_0': stmt.excluded.fib_level_0,
-                'fib_level_236': stmt.excluded.fib_level_236,
                 'fib_level_382': stmt.excluded.fib_level_382,
-                'fib_level_500': stmt.excluded.fib_level_500,
                 'fib_level_618': stmt.excluded.fib_level_618,
-                'fib_level_786': stmt.excluded.fib_level_786,
-                'fib_level_100': stmt.excluded.fib_level_100,
-                'pivot': stmt.excluded.pivot,
-                'pivot_s1': stmt.excluded.pivot_s1,
-                'pivot_s2': stmt.excluded.pivot_s2,
-                'pivot_r1': stmt.excluded.pivot_r1,
-                'pivot_r2': stmt.excluded.pivot_r2,
+                'pivot_weekly': stmt.excluded.pivot_weekly,
+                'momentum_24h': stmt.excluded.momentum_24h,
+                'range_position_24h': stmt.excluded.range_position_24h,
+                'volume_surge_24h': stmt.excluded.volume_surge_24h,
             }
         )
 
@@ -326,3 +258,7 @@ class DataManager:
 
         print(f"✅ Saved indicators for {timestamp}")
         return 1
+
+    def close(self):
+        if self.db:
+            self.db.close()

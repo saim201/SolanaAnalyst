@@ -69,7 +69,29 @@ class DataQuery:
             CandlestickData.open_time >= cutoff
         ).order_by(CandlestickData.open_time).all()
 
-        return candles
+        if not candles:
+            return []
+
+        # Reverse to get chronological order (oldest to newest)
+        candles = sorted(candles, key=lambda x: x.open_time)
+
+        candle_data = []
+        for candle in candles:
+            candle_data.append({
+                'open_time': candle.open_time.isoformat(),
+                'close_time': candle.close_time.isoformat(),
+                'open': candle.open,
+                'high': candle.high,
+                'low': candle.low,
+                'close': candle.close,
+                'volume': candle.volume,
+                'quote_volume': candle.quote_volume,
+                'num_trades': candle.num_trades,
+                'taker_buy_base': candle.taker_buy_base,
+                'taker_buy_quote': candle.taker_buy_quote
+            })
+
+        return candle_data
 
 
 
@@ -84,7 +106,6 @@ class DataQuery:
         # Reverse to get chronological order (oldest to newest)
         candles = sorted(candles, key=lambda x: x.open_time)
 
-        # Convert to clean dict list
         candle_data = []
         for candle in candles:
             candle_data.append({
@@ -126,6 +147,15 @@ class DataQuery:
             "bb_upper": indicators.bb_upper,
             "bb_middle": indicators.bb_middle,
             "bb_lower": indicators.bb_lower,
+            "bb_width": indicators.bb_width,
+            "bb_position": indicators.bb_position,
+            "atr": indicators.atr,
+            "volatility_percent": indicators.volatility_percent,
+            "volume_ma20": indicators.volume_ma20,
+            "volume_current": indicators.volume_current,
+            "volume_ratio": indicators.volume_ratio,
+            "obv": indicators.obv,
+            "buy_pressure_ratio": indicators.buy_pressure_ratio,
             "support1": indicators.support1,
             "support1_percent": indicators.support1_percent,
             "support2": indicators.support2,
@@ -150,6 +180,12 @@ class DataQuery:
             "pivot_s2": indicators.pivot_s2,
             "pivot_r1": indicators.pivot_r1,
             "pivot_r2": indicators.pivot_r2,
+            "ema20_4h": indicators.ema20_4h,
+            "ema50_4h": indicators.ema50_4h,
+            "high_4h": indicators.high_4h,
+            "low_4h": indicators.low_4h,
+            "range_4h": indicators.range_4h,
+            "price_from_low_4h": indicators.price_from_low_4h,
         }
 
 
@@ -165,3 +201,11 @@ class DataQuery:
             "confidence": d.confidence,
             "reasoning": d.reasoning,
         } for d in decisions]
+
+
+
+
+if __name__ == "__main__":
+    import pprint
+    dq = DataQuery()
+    pprint.pp(dq.get_candlestick_data())
