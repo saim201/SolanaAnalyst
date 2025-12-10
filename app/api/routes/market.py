@@ -1,39 +1,35 @@
-"""
-Market data endpoints.
-"""
-from fastapi import APIRouter, HTTPException
 
-from app.api.schemas import MarketDataResponse
-from app.agents.db_fetcher import DataQuery
+from fastapi import APIRouter, HTTPException
+from datetime import datetime
+
+from app.api.schemas import RefreshDataResponse
+from app.data.refresh_manager import RefreshManager
 
 router = APIRouter(prefix="/api", tags=["market"])
 
 
-@router.get("/market/data", response_model=MarketDataResponse)
-def get_market_data(days: int = 30):
-    """
-    Get market data including price, indicators, and news.
-    
-    Args:
-        days: Number of days of historical data to retrieve (default: 30, max: 90)
-    """
+@router.post("/market/refresh")
+def refresh_market_data():
     try:
-        # Validate days parameter
-        days = min(max(days, 1), 90)  # Ensure 1-90
-        
-        with DataQuery() as dq:
-            price_data = dq.get_indicators_data(days=days)
-            # FIX: Changed from undefined 'txn_data' to 'indicators_data'
-            indicators_data = dq.get_indicators_data(days=days)
-            news_data = dq.get_news_data(days=days)
+        print(" Market data refresh requested...")
 
-        return MarketDataResponse(
-            price_data=str(price_data),
-            indicators=str(indicators_data),
-            news_data=str(news_data)
-        )
+        # Run RefreshManager to fetch and save all data
+        success = RefreshManager.refresh_all_data()
+
+        if success:
+            return RefreshDataResponse(
+                status="success",
+                message="Market data refreshed successfully (candlesticks, ticker, news, indicators fetched and saved to DB)",
+                timestamp=datetime.now().isoformat()
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="Some data sources failed to refresh. Check logs for details."
+            )
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch market data: {str(e)}"
+            detail=f"Market data refresh failed: {str(e)}"
         )

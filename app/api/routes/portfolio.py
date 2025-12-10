@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from datetime import datetime
 
 from app.api.schemas import PortfolioStatusResponse, RefreshDataResponse
-from app.data.refresh import RefreshManager
+from app.data.refresh_manager import RefreshManager
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
 

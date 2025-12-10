@@ -1,13 +1,9 @@
-"""
-Centralized application configuration.
-Loads settings from environment variables with sensible defaults.
-"""
+
 from pydantic_settings import BaseSettings
 from typing import Optional
 
 
 class Settings(BaseSettings):
-    """Application settings from environment variables"""
 
     # API Configuration
     API_HOST: str = "0.0.0.0"

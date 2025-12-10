@@ -3,7 +3,11 @@ import os
 from datetime import datetime, timedelta
 
 from app.database.config import get_db_session
-from app.database.models import NewsData, CandlestickData, IndicatorsData, TradeDecision, TickerModel, CandlestickIntradayModel
+from app.database.models.candlestick import CandlestickModel, CandlestickIntradayModel, TickerModel
+from app.database.models.news import NewsModel
+from app.database.models.indicators import IndicatorsModel
+from app.database.models.analysis import TraderAnalyst
+
 
 
 class DataQuery:
@@ -18,14 +22,13 @@ class DataQuery:
 
     def get_news_data(self, days: int = 7) -> list:
         cutoff = datetime.now() - timedelta(days=days)
-        news = self.db.query(NewsData).filter(
-            NewsData.published_at >= cutoff
-        ).order_by(NewsData.priority, NewsData.published_at.desc()).all()
+        news = self.db.query(NewsModel).filter(
+            NewsModel.published_at >= cutoff
+        ).order_by(NewsModel.priority, NewsModel.published_at.desc()).all()
 
         if not news:
             return []
 
-        # Convert to clean dict list
         news_data = []
         for article in news:
             news_data.append({
@@ -63,9 +66,9 @@ class DataQuery:
 
     def get_candlestick_data(self, days: int = 90) -> list:
         cutoff = datetime.now() - timedelta(days=days)
-        candles = self.db.query(CandlestickData).filter(
-            CandlestickData.open_time >= cutoff
-        ).order_by(CandlestickData.open_time).all()
+        candles = self.db.query(CandlestickModel).filter(
+            CandlestickModel.open_time >= cutoff
+        ).order_by(CandlestickModel.open_time).all()
 
         if not candles:
             return []
@@ -126,9 +129,9 @@ class DataQuery:
 
     def get_indicators_data(self, days: int = 30) -> dict:
         cutoff = datetime.now() - timedelta(days=days)
-        indicators = self.db.query(IndicatorsData).filter(
-            IndicatorsData.timestamp >= cutoff
-        ).order_by(IndicatorsData.timestamp.desc()).first()
+        indicators = self.db.query(IndicatorsModel).filter(
+            IndicatorsModel.timestamp >= cutoff
+        ).order_by(IndicatorsModel.timestamp.desc()).first()
 
         if not indicators:
             return {}
@@ -184,8 +187,8 @@ class DataQuery:
 
 
     def get_trade_history(self, limit: int = 5) -> list:
-        decisions = self.db.query(TradeDecision).order_by(
-            TradeDecision.timestamp.desc()
+        decisions = self.db.query(TraderAnalyst).order_by(
+            TraderAnalyst.timestamp.desc()
         ).limit(limit).all()
 
         return [{
@@ -201,4 +204,4 @@ class DataQuery:
 if __name__ == "__main__":
     import pprint
     dq = DataQuery()
-    pprint.pp(dq.get_candlestick_data())
+    pprint.pp(dq.get_news_data())

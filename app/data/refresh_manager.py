@@ -3,7 +3,6 @@ import os
 from datetime import datetime
 import pandas as pd
 
-# Add backend directory to path so imports work when running directly
 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
@@ -13,7 +12,7 @@ from app.data.fetchers.rss_news_fetcher import RSSNewsFetcher
 from app.data.indicators import IndicatorsProcessor
 from app.database.config import get_db_session
 from app.database.data_manager import DataManager
-from app.database.models import CandlestickData, CandlestickIntradayModel, TickerModel
+from app.database.models.candlestick import CandlestickModel, TickerModel
 
 
 class RefreshManager:
@@ -35,8 +34,6 @@ class RefreshManager:
         news_success = RefreshManager._fetch_news_data()
         if news_success:
             success_count += 1
-
-
         
         indicators_success = RefreshManager._calculate_and_save_indicators()
         if indicators_success:
@@ -92,8 +89,8 @@ class RefreshManager:
         try:
             db = get_db_session()
 
-            daily_candles = db.query(CandlestickData).order_by(
-                CandlestickData.open_time.desc()
+            daily_candles = db.query(CandlestickModel).order_by(
+                CandlestickModel.open_time.desc()
             ).limit(90).all()
 
             ticker_data = db.query(TickerModel).order_by(

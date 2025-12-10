@@ -7,7 +7,7 @@ from datetime import datetime
 from app.agents.base import BaseAgent, AgentState
 from app.agents.llm import llm
 from app.database.config import get_db_session
-from app.database.models import PortfolioState, TradeDecision
+from app.database.models import PortfolioState, TraderAnalyst
 
 
 PORTFOLIO_PROMPT = """You are a portfolio performance analyst.
@@ -58,7 +58,7 @@ class PortfolioAgent(BaseAgent):
         portfolio = db.query(PortfolioState).order_by(PortfolioState.timestamp.desc()).first()
 
         # Get recent trades
-        trades = db.query(TradeDecision).order_by(TradeDecision.timestamp.desc()).limit(20).all()
+        trades = db.query(TraderAnalyst).order_by(TraderAnalyst.timestamp.desc()).limit(20).all()
         db.close()
 
         if not portfolio:
@@ -102,11 +102,12 @@ class PortfolioAgent(BaseAgent):
             metrics = self.calculate_portfolio_metrics()
 
             if not metrics:
-                state['portfolio_analysis'] = json.dumps({
+                state['portfolio'] = {
                     "portfolio_health": "unknown",
                     "performance_summary": "No portfolio data available",
                     "risk_assessment": "Unable to assess"
-                })
+                }
+                state['portfolio_analysis'] = json.dumps(state['portfolio'])
                 return state
 
             # Build prompt
@@ -147,20 +148,23 @@ class PortfolioAgent(BaseAgent):
                     clean_response = clean_response[:-3]
 
                 portfolio_data = json.loads(clean_response)
+                state['portfolio'] = portfolio_data
                 state['portfolio_analysis'] = json.dumps(portfolio_data)
 
             except (json.JSONDecodeError, ValueError):
-                state['portfolio_analysis'] = json.dumps({
+                state['portfolio'] = {
                     "portfolio_health": "fair",
                     "performance_summary": "Portfolio tracking active",
                     "risk_assessment": "Monitor ongoing"
-                })
+                }
+                state['portfolio_analysis'] = json.dumps(state['portfolio'])
 
         except Exception as e:
-            state['portfolio_analysis'] = json.dumps({
+            state['portfolio'] = {
                 "portfolio_health": "unknown",
                 "performance_summary": f"Analysis error: {str(e)[:100]}",
                 "risk_assessment": "Unable to assess"
-            })
+            }
+            state['portfolio_analysis'] = json.dumps(state['portfolio'])
 
         return state

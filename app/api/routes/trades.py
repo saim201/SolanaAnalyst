@@ -6,7 +6,7 @@ from datetime import datetime
 
 from app.api.schemas import TradeDecisionResponse, TradeHistoryResponse
 from app.database.config import get_db_session
-from app.database.models import TradeDecision
+from app.database.models import TraderAnalyst
 
 router = APIRouter(prefix="/api", tags=["trades"])
 
@@ -18,8 +18,8 @@ def get_last_trade_decision():
     try:
         db = get_db_session()
         last_trade = (
-            db.query(TradeDecision)
-            .order_by(TradeDecision.timestamp.desc())
+            db.query(TraderAnalyst)
+            .order_by(TraderAnalyst.timestamp.desc())
             .first()
         )
         
@@ -30,7 +30,7 @@ def get_last_trade_decision():
             "id": last_trade.id,
             "decision": last_trade.decision,
             "confidence": last_trade.confidence,
-            "action": last_trade.action,
+            "action": 0.0,  # TraderAnalyst doesn't have action field
             "reasoning": last_trade.reasoning,
             "timestamp": last_trade.timestamp.isoformat()
         }
@@ -59,8 +59,8 @@ def get_trades_history(limit: int = 10):
         
         db = get_db_session()
         trades = (
-            db.query(TradeDecision)
-            .order_by(TradeDecision.timestamp.desc())
+            db.query(TraderAnalyst)
+            .order_by(TraderAnalyst.timestamp.desc())
             .limit(limit)
             .all()
         )
@@ -70,7 +70,7 @@ def get_trades_history(limit: int = 10):
                 "id": trade.id,
                 "decision": trade.decision,
                 "confidence": trade.confidence,
-                "action": trade.action,
+                "action": 0.0,  # TraderAnalyst doesn't have action field
                 "reasoning": trade.reasoning,
                 "timestamp": trade.timestamp.isoformat()
             }

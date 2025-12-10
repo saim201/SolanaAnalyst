@@ -5,8 +5,10 @@ import pandas as pd
 from datetime import datetime
 from typing import List, Dict
 from sqlalchemy.dialects.postgresql import insert
-from database.models import NewsData, CandlestickData, TickerModel, CandlestickIntradayModel
-from database.config import get_db_session
+from app.database.models.news import NewsModel
+from app.database.models.indicators import IndicatorsModel
+from app.database.models.candlestick import CandlestickModel, CandlestickIntradayModel, TickerModel
+from app.database.config import get_db_session
 
 
 class DataManager:
@@ -67,7 +69,7 @@ class DataManager:
             }
             records.append(record)
 
-        stmt = insert(CandlestickData).values(records)
+        stmt = insert(CandlestickModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['open_time'],
             set_={
@@ -156,7 +158,7 @@ class DataManager:
             }
             records.append(record)
 
-        stmt = insert(NewsData).values(records)
+        stmt = insert(NewsModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['url'],
             set_={
@@ -175,14 +177,13 @@ class DataManager:
         print(f"✅ Saved {len(records)} news articles")
         return len(records)
 
-    def get_latest_news_date(self):
-        result = self.db.query(NewsData).order_by(NewsData.published_at.desc()).first()
+
+        result = self.db.query(NewsModel).order_by(NewsModel.published_at.desc()).first()
         return result.published_at if result else None
 
-    def save_indicators(self, timestamp: datetime, indicators: Dict) -> int:
-        print(f"💾 Saving indicators for {timestamp}...")
 
-        from database.models import IndicatorsData
+    def save_indicators(self, timestamp: datetime, indicators: Dict) -> int:
+        print(f"Saving indicators for {timestamp}...")
 
         record = {
             'timestamp': timestamp,
@@ -217,7 +218,7 @@ class DataManager:
             'volume_surge_24h': indicators.get('volume_surge_24h'),
         }
 
-        stmt = insert(IndicatorsData).values(record)
+        stmt = insert(IndicatorsModel).values(record)
         stmt = stmt.on_conflict_do_update(
             index_elements=['timestamp'],
             set_={
@@ -259,6 +260,161 @@ class DataManager:
         print(f"✅ Saved indicators for {timestamp}")
         return 1
 
+
+    def save_technical_analysis(self, data: Dict) -> int:
+        from app.database.models.analysis import TechnicalAnalyst
+        
+        record = {
+            'recommendation': data.get('recommendation'),
+            'confidence': data.get('confidence'),
+            'confidence_breakdown': data.get('confidence_breakdown'),
+            'timeframe': data.get('timeframe'),
+            'entry_level': data.get('entry_level'),
+            'stop_loss': data.get('stop_loss'),
+            'take_profit': data.get('take_profit'),
+            'key_signals': data.get('key_signals'),
+            'reasoning': data.get('reasoning'),
+            'thinking': data.get('thinking')
+        }
+        
+        stmt = insert(TechnicalAnalyst).values(record)
+        # stmt = stmt.on_conflict_do_update(
+        #     index_elements=['created_at'],
+        #     set_=record
+        # )
+        
+        self.db.execute(stmt)
+        self.db.commit()
+        print(f"✅ Saved Technical Analysis {datetime.now()}")
+        return 1
+
+
+
+
+    def save_news_analysis(self, data: Dict) -> int:
+        from app.database.models.analysis import NewsAnalyst
+        
+        record = {
+            'overall_sentiment': data.get('overall_sentiment'),
+            'sentiment_trend': data.get('sentiment_trend'),
+            'sentiment_breakdown': data.get('sentiment_breakdown'),
+            'recommendation': data.get('recommendation'),
+            'confidence': data.get('confidence'),
+            'hold_duration': data.get('hold_duration'),
+            'critical_events': data.get('critical_events'),
+            'event_classification': data.get('event_classification'),
+            'risk_flags': data.get('risk_flags'),
+            'time_sensitive_events': data.get('time_sensitive_events'),
+            'reasoning': data.get('reasoning'),
+            'thinking': data.get('thinking')
+        }
+        
+        stmt = insert(NewsAnalyst).values(record)
+        # stmt = stmt.on_conflict_do_update(
+        #     index_elements=['timestamp'],
+        #     set_=record
+        # )
+        
+        self.db.execute(stmt)
+        self.db.commit()
+        print(f"✅ Saved News Analysis {datetime.now()}")
+        return 1
+
+
+
+    def save_reflection_analysis(self, data: Dict) -> int:
+        from app.database.models.analysis import ReflectionAnalyst
+        
+        record = {
+            'bull_case_summary': data.get('bull_case_summary'),
+            'bear_case_summary': data.get('bear_case_summary'),
+            'bull_strength': data.get('bull_strength'),
+            'bear_strength': data.get('bear_strength'),
+            'recommendation': data.get('recommendation'),
+            'confidence': data.get('confidence'),
+            'primary_risk': data.get('primary_risk'),
+            'monitoring_trigger': data.get('monitoring_trigger'),
+            'consensus_points': data.get('consensus_points'),
+            'conflict_points': data.get('conflict_points'),
+            'blind_spots': data.get('blind_spots'),
+            'reasoning': data.get('reasoning')
+        }
+        
+        stmt = insert(ReflectionAnalyst).values(record)
+        # stmt = stmt.on_conflict_do_update(
+        #     index_elements=['timestamp'],
+        #     set_=record
+        # )
+        
+        self.db.execute(stmt)
+        self.db.commit()
+        print(f"✅ Saved Reflection Analysis for {datetime.now()}")
+        return 1
+
+
+
+    def save_risk_analysis(self, timestamp: datetime, data: Dict) -> int:
+        from app.database.models.analysis import RiskAnalyst
+
+        record = {
+            'timestamp': timestamp,
+            'approved': data.get('approved', 'NO'),
+            'position_size_percent': data.get('position_size_percent', 0.0),
+            'position_size_usd': data.get('position_size_usd', 0.0),
+            'max_loss_usd': data.get('max_loss_usd', 0.0),
+            'entry_price': data.get('entry_price'),
+            'stop_loss': data.get('stop_loss'),
+            'take_profit': data.get('take_profit'),
+            'risk_reward_ratio': data.get('risk_reward_ratio', 0.0),
+            'validation_details': data.get('validation_details'),
+            'warnings': data.get('warnings'),
+            'reasoning': data.get('reasoning'),
+            'total_balance': data.get('total_balance'),
+            'current_risk_percent': data.get('current_risk_percent'),
+            'open_positions': data.get('open_positions')
+        }
+        
+        stmt = insert(RiskAnalyst).values(record)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['timestamp'],
+            set_=record
+        )
+        
+        self.db.execute(stmt)
+        self.db.commit()
+        print(f"✅ Saved Risk Analysis for {timestamp}")
+        return 1
+
+
+
+    def save_trader_decision(self, timestamp: datetime, data: Dict) -> int:
+        from app.database.models.analysis import TraderAnalyst
+        
+        record = {
+            'timestamp': timestamp,
+            'decision': data.get('decision'),
+            'confidence': data.get('confidence'),
+            'consensus_level': data.get('consensus_level'),
+            'agreeing_agents': data.get('agreeing_agents'),
+            'disagreeing_agents': data.get('disagreeing_agents'),
+            'primary_concern': data.get('primary_concern'),
+            'reasoning': data.get('reasoning')
+        }
+        
+        stmt = insert(TraderAnalyst).values(record)
+        # stmt = stmt.on_conflict_do_update(
+        #     index_elements=['timestamp'],
+        #     set_=record
+        # )
+        
+        self.db.execute(stmt)
+        self.db.commit()
+        print(f"✅ Saved Trader Decision for {timestamp}")
+        return 1
+
+
     def close(self):
         if self.db:
             self.db.close()
+
+

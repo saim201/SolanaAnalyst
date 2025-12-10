@@ -3,7 +3,7 @@ from datetime import datetime
 from app.database.config import Base
 
 
-class IndicatorsData(Base):
+class IndicatorsModel(Base):
     __tablename__ = 'indicators'
 
     id = Column(Integer, primary_key=True, index=True)
@@ -13,7 +13,6 @@ class IndicatorsData(Base):
     ema50 = Column(Float, nullable=True)
     ema200 = Column(Float, nullable=True)  # Major trend bias indicator
 
-    # MACD
     macd_line = Column(Float, nullable=True)
     macd_signal = Column(Float, nullable=True)
     macd_histogram = Column(Float, nullable=True)
@@ -28,7 +27,6 @@ class IndicatorsData(Base):
     bb_lower = Column(Float, nullable=True)
     atr = Column(Float, nullable=True)
 
-    # Volume
     volume_ma20 = Column(Float, nullable=True)
     volume_current = Column(Float, nullable=True)
     volume_ratio = Column(Float, nullable=True)
@@ -48,7 +46,6 @@ class IndicatorsData(Base):
     fib_level_382 = Column(Float, nullable=True)
     fib_level_618 = Column(Float, nullable=True)
 
-    # Pivot Point (MODIFIED: Keep weekly pivot for market bias, remove daily S/R levels)
     pivot_weekly = Column(Float, nullable=True)  # Weekly pivot for bias (not daily)
 
     # 24h Ticker Indicators
@@ -62,23 +59,5 @@ class IndicatorsData(Base):
         Index('idx_indicators_timestamp', 'timestamp'),
     )
 
-    def __repr__(self):
-        return f"<IndicatorsData(timestamp={self.timestamp}, rsi14={self.rsi14}, ema20={self.ema20})>"
 
 
-class TickerModel(Base):
-    __tablename__ = 'ticker_24h'
-
-    id = Column(Integer, primary_key=True, index=True)
-    lastPrice = Column(Float, nullable=False)
-    priceChangePercent = Column(Float, nullable=False)
-    openPrice = Column(Float, nullable=False)
-    highPrice = Column(Float, nullable=False)
-    lowPrice = Column(Float, nullable=False)
-    volume = Column(Float, nullable=False)
-    quoteVolume = Column(Float, nullable=False)
-    timestamp = Column(DateTime, nullable=False, unique=True, index=True)
-
-    __table_args__ = (
-        Index('idx_ticker24h_timestamp', 'timestamp'),
-    )

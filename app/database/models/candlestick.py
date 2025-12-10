@@ -1,12 +1,9 @@
-"""
-Candlestick data models for daily and intraday price data.
-"""
+
 from sqlalchemy import Column, Integer, Float, DateTime, BigInteger, Index
 from app.database.config import Base
 
 
-class CandlestickData(Base):
-    """Daily OHLCV candlestick data"""
+class CandlestickModel(Base):
     __tablename__ = 'candlestick_daily'
 
     id = Column(Integer, primary_key=True, index=True)
@@ -28,7 +25,6 @@ class CandlestickData(Base):
 
 
 class CandlestickIntradayModel(Base):
-    """4-hour intraday candlestick data for entry timing"""
     __tablename__ = 'candlestick_intraday'
 
     id = Column(Integer, primary_key=True, index=True)
@@ -46,4 +42,23 @@ class CandlestickIntradayModel(Base):
 
     __table_args__ = (
         Index('idx_candlestick_intraday_opentime', 'open_time'),
+    )
+
+
+
+class TickerModel(Base):
+    __tablename__ = 'ticker_24h'
+
+    id = Column(Integer, primary_key=True, index=True)
+    lastPrice = Column(Float, nullable=False)
+    priceChangePercent = Column(Float, nullable=False)
+    openPrice = Column(Float, nullable=False)
+    highPrice = Column(Float, nullable=False)
+    lowPrice = Column(Float, nullable=False)
+    volume = Column(Float, nullable=False)
+    quoteVolume = Column(Float, nullable=False)
+    timestamp = Column(DateTime, nullable=False, unique=True, index=True)
+
+    __table_args__ = (
+        Index('idx_ticker24h_timestamp', 'timestamp'),
     )

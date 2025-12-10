@@ -1,13 +1,10 @@
-"""
-Portfolio state tracking model.
-"""
+
 from sqlalchemy import Column, Integer, Float, DateTime, Index
 from datetime import datetime
 from app.database.config import Base
 
 
 class PortfolioState(Base):
-    """Snapshot of portfolio state at a given timestamp"""
     __tablename__ = 'portfolio_state'
 
     id = Column(Integer, primary_key=True, index=True)

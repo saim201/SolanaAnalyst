@@ -10,19 +10,23 @@ import json
 import re
 from app.agents.base import BaseAgent, AgentState
 from app.agents.llm import llm
-from app.agents.formatter import LLMDataFormatter
+from app.agents.db_fetcher import DataQuery
+from app.database.data_manager import DataManager
 
 
-SYSTEM_PROMPT = """You are a veteran crypto news analyst with 10 years of experience separating signal from noise in the cryptocurrency market. You worked as a hedge fund analyst covering blockchain events and regulatory developments.
+SYSTEM_PROMPT = """You are a veteran crypto news analyst analyzing SOLANA (SOL) cryptocurrency with 10 years of experience separating signal from noise in the cryptocurrency market. You worked as a hedge fund analyst covering blockchain events and regulatory developments.
 
 Your expertise:
 - Distinguishing hype from material catalysts
-- Identifying regulatory risk early
+- Identifying regulatory risk early (especially SEC actions affecting Solana)
 - Recognizing partnership/upgrade announcements with real impact
 - Detecting FUD campaigns and manipulation attempts
 - Understanding macro correlation (crypto follows risk-on/risk-off cycles)
+- Tracking Solana ecosystem developments (DeFi protocols, NFT projects, validator network)
 
-Your analysis style is skeptical, fact-based, and focused on "will this move the price in 3-7 days?"
+CRITICAL: You are analyzing news for SOLANA (SOL) - a high-performance Layer 1 blockchain.
+Consider Solana-specific factors: network outages, validator centralization concerns, ecosystem growth.
+Your analysis style is skeptical, fact-based, and focused on "will this move SOL price in 1-5 days?"
 """
 
 
@@ -98,7 +102,7 @@ Based on the above 5-step analysis, provide your news sentiment assessment in th
   }},
   "recommendation": "BULLISH",
   "confidence": 0.70,
-  "hold_duration": "5-7 days (wait for ecosystem growth to reflect in price)",
+  "hold_duration": "3-4 days (wait for ecosystem growth to reflect in price)",
   "reasoning": "Strong ecosystem growth with DeFi TVL hitting $5B and new partnership announcements. Positive macro tailwind from Bitcoin ETF approval creating risk-on sentiment. No major regulatory or security concerns.",
   "risk_flags": [],
   "time_sensitive_events": [
@@ -126,14 +130,25 @@ class NewsAgent(BaseAgent):
         )
 
     def execute(self, state: AgentState) -> AgentState:
-        llm_data = LLMDataFormatter.format_for_news_agent()
+        dq = DataQuery()
+        news_data = dq.get_news_data(days=7)
 
-        articles = llm_data.get("articles", [])
-        articles_count = llm_data.get("articles_count", 0)
+        articles_count = len(news_data)
+
+        # Format articles for prompt
+        if articles_count > 0:
+            articles_text = "\n\n".join([
+                f"[{i+1}] {article['title']}\n"
+                f"Published: {article['published_at']}\n"
+                f"Summary: {article.get('description', 'No summary available')[:200]}..."
+                for i, article in enumerate(news_data)
+            ])
+        else:
+            articles_text = "No recent news articles found."
 
         # Handle no news scenario
         if articles_count == 0:
-            state['news_analysis'] = json.dumps({
+            state['news'] = {
                 "overall_sentiment": 0.5,
                 "sentiment_trend": "stable",
                 "sentiment_breakdown": {
@@ -154,18 +169,13 @@ class NewsAgent(BaseAgent):
                 "hold_duration": "N/A",
                 "reasoning": "No recent news available for analysis (last 7 days)",
                 "risk_flags": [],
-                "time_sensitive_events": []
-            })
+                "time_sensitive_events": [],
+                "thinking": ""  # Fixed: Added missing field
+            }
+
             return state
 
-        # Format articles for LLM
-        articles_text = "\n".join([
-            f"[{i+1}] [{a.get('priority', 'MEDIUM')}] {a['title']}\n"
-            f"    Source: {a['source']} | Published: {a.get('published_at', 'N/A')}\n"
-            f"    Summary: {a.get('content', 'No summary available')[:150]}..."
-            for i, a in enumerate(articles[:20])  # Limit to 20 most recent/important
-        ])
-
+        # Build news summary
         news_summary = f"Total Articles: {articles_count}\n\n{articles_text}"
 
         full_prompt = SYSTEM_PROMPT + "\n\n" + NEWS_PROMPT.format(news_data=news_summary)
@@ -178,32 +188,30 @@ class NewsAgent(BaseAgent):
         )
 
         try:
-            # Extract <thinking> for debugging
             thinking_match = re.search(r'<thinking>(.*?)</thinking>', response, re.DOTALL)
             thinking = thinking_match.group(1).strip() if thinking_match else ""
 
-            # Extract <answer> JSON 
             answer_match = re.search(r'<answer>(.*?)</answer>', response, re.DOTALL)
             if answer_match:
                 answer_json = answer_match.group(1).strip()
             else:
-                # Fallback: try to extract JSON without tags
                 answer_json = response
 
             answer_json = re.sub(r'```json\s*|\s*```', '', answer_json).strip()
             news_data = json.loads(answer_json)
 
-            state['news_analysis'] = json.dumps(news_data)
-
             if thinking:
-                state['news_thinking'] = thinking[:500] 
+                news_data['thinking'] = thinking[:500]
+
+            state['news'] = news_data
+
+            dm = DataManager()
+            dm.save_news_analysis(news_data)
 
         except (json.JSONDecodeError, ValueError) as e:
             print(f"⚠️  News agent parsing error: {e}")
             print(f"Response: {response[:300]}")
-
-            # Safe fallback
-            state['news_analysis'] = json.dumps({
+            state['news'] = {
                 "overall_sentiment": 0.5,
                 "sentiment_trend": "stable",
                 "sentiment_breakdown": {
@@ -224,8 +232,9 @@ class NewsAgent(BaseAgent):
                 "hold_duration": "N/A",
                 "reasoning": f"Analysis parsing error: {str(e)[:100]}",
                 "risk_flags": ["parsing_error"],
-                "time_sensitive_events": []
-            })
+                "time_sensitive_events": [],
+                "thinking": ""  # Fixed: Added missing field
+            }
 
         return state
 
@@ -235,9 +244,7 @@ if __name__ == "__main__":
     test_state = AgentState()
     result = agent.execute(test_state)
     print("\n===== NEWS AGENT OUTPUT =====")
-    print(f"\n ---- 1st news analysis: \n {result}")
-    analysis = json.loads(result.get('news_analysis', '{}'))
-    print(f"\n ---- 2nd news analysis: \n {analysis}")
+    analysis = json.loads(result.get('news', '{}'))
     print(f"Sentiment: {analysis.get('overall_sentiment')}")
     print(f"Recommendation: {analysis.get('recommendation')}")
     print(f"Reasoning: {analysis.get('reasoning')}")

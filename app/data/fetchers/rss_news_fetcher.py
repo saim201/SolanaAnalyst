@@ -253,8 +253,6 @@ class RSSNewsFetcher:
 
     def fetch_solana_status(self) -> List[Dict]:
         try:
-            print(f"📡 Fetching Solana Status incidents...")
-
             headers = {'User-Agent': self.USER_AGENT}
             response = requests.get(
                 self.STATUS_API_URL,

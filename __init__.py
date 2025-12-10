@@ -1,6 +1,4 @@
-"""
-Backend package initialization - centralized sys.path setup
-"""
+
 import sys
 import os
 

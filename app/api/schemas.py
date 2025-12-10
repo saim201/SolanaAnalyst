@@ -3,18 +3,84 @@ Pydantic schemas for API request/response validation.
 """
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 
 class TradeAnalysisResponse(BaseModel):
-    """Response from analysis endpoint"""
+    # decision: str
+    # confidence: float
+    # reasoning: str
+    technical_analysis: Dict
+    news_analysis: Dict
+    reflection_analysis: Dict
+    trader_analysis: Dict
+    timestamp: str
+
+
+class TechnicalAnalysisSchema(BaseModel):
+    """Technical analysis nested output"""
+    recommendation: str
+    confidence: float
+    confidence_breakdown: Optional[List[str]] = None
+    timeframe: Optional[str] = None
+    key_signals: Optional[List[str]] = None
+    entry_level: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    reasoning: str
+    thinking: Optional[str] = None
+
+
+class NewsAnalysisSchema(BaseModel):
+    """News analysis nested output"""
+    overall_sentiment: float
+    sentiment_trend: str
+    sentiment_breakdown: Optional[Dict[str, float]] = None
+    recommendation: str
+    confidence: float
+    hold_duration: Optional[str] = None
+    critical_events: Optional[List[str]] = None
+    event_classification: Optional[Dict[str, int]] = None
+    risk_flags: Optional[List[str]] = None
+    time_sensitive_events: Optional[List[str]] = None
+    reasoning: str
+    thinking: Optional[str] = None
+
+
+class ReflectionAnalysisSchema(BaseModel):
+    """Reflection analysis nested output"""
+    bull_case_summary: str
+    bear_case_summary: str
+    bull_strength: float
+    bear_strength: float
+    recommendation: str
+    confidence: float
+    primary_risk: Optional[str] = None
+    monitoring_trigger: Optional[str] = None
+    consensus_points: Optional[List[str]] = None
+    conflict_points: Optional[List[str]] = None
+    blind_spots: Optional[Any] = None  # Can be List or Dict
+    reasoning: str
+
+
+class TraderDecisionSchema(BaseModel):
+    """Trader decision nested output"""
     decision: str
     confidence: float
-    action: float
+    consensus_level: Optional[str] = None
+    agreeing_agents: Optional[List[str]] = None
+    disagreeing_agents: Optional[List[str]] = None
+    primary_concern: Optional[str] = None
     reasoning: str
-    technical_analysis: str
-    news_analysis: str
-    reflection_analysis: str
+    thinking: Optional[str] = None
+
+
+class NestedAnalysisResponse(BaseModel):
+    """Full nested analysis response matching agent state structure"""
+    technical: Optional[TechnicalAnalysisSchema] = None
+    news: Optional[NewsAnalysisSchema] = None
+    reflection: Optional[ReflectionAnalysisSchema] = None
+    trader: Optional[TraderDecisionSchema] = None
     timestamp: str
 
 

@@ -158,22 +158,48 @@ class IndicatorsCalculator:
             return 1.0
         return current_volume / volume_ma
 
+
+
+
+
     @staticmethod
-    def pivot_points(prev_high: float, prev_low: float, prev_close: float) -> Dict[str, float]:
-        pivot = (prev_high + prev_low + prev_close) / 3
-        r1 = (2 * pivot) - prev_low
-        r2 = pivot + (prev_high - prev_low)
-        s1 = (2 * pivot) - prev_high
-        s2 = pivot - (prev_high - prev_low)
-        
-        return {
-            'pivot': pivot,
-            'r1': r1,
-            'r2': r2,
-            's1': s1,
-            's2': s2,
-        }
-    
+    def kijun_sen(df: pd.DataFrame, period: int = 26) -> float:
+        # Kijun-Sen (Base Line) - Ichimoku indicator for trend equilibrium
+        recent = df.tail(period)
+        return float((recent['high'].max() + recent['low'].min()) / 2)
+
+    @staticmethod
+    def stochastic_rsi(rsi_series: pd.Series, period: int = 14) -> float:
+        # more sensitive overbought/oversold indicator
+        recent_rsi = rsi_series.tail(period)
+        rsi_min = recent_rsi.min()
+        rsi_max = recent_rsi.max()
+
+        if rsi_max == rsi_min:
+            return 0.5
+
+        stoch_rsi = (rsi_series.iloc[-1] - rsi_min) / (rsi_max - rsi_min)
+        return float(stoch_rsi)
+
+    @staticmethod
+    def days_since_volume_spike(df: pd.DataFrame, spike_threshold: float = 1.5) -> int:
+        """Days since last volume spike (>1.5x average)"""
+        try:
+            volume_ma20 = df['volume'].rolling(20).mean()
+            spike_condition = df['volume'] > (volume_ma20 * spike_threshold)
+            spike_indices = df[spike_condition].index
+
+            if len(spike_indices) == 0:
+                return 999  # No spike found
+
+            last_spike_idx = spike_indices[-1]
+            current_idx = df.index[-1]
+            days_since = (current_idx - last_spike_idx)
+
+            return int(days_since) if hasattr(days_since, 'days') else int(days_since)
+        except:
+            return 999
+
     @staticmethod
     def fibonacci_retracement(swing_high: float, swing_low: float) -> Dict[str, float]:
         diff = swing_high - swing_low
@@ -199,25 +225,21 @@ class IndicatorsCalculator:
     def find_support_resistance(df: pd.DataFrame, current_price: float, lookback_days: int = 30) -> Tuple[List[float], List[float]]:
         recent = df.tail(lookback_days)
         
-        # Get EMA values
         ema20 = recent['close'].ewm(span=20, adjust=False).mean().iloc[-1]
         ema50 = recent['close'].ewm(span=50, adjust=False).mean().iloc[-1]
         ema200 = recent['close'].ewm(span=200, adjust=False).mean().iloc[-1]
         
-        # Create candidate levels (EMAs + recent price zones)
         all_levels = [ema20, ema50, ema200]
         
-        # Add high/low clusters (consolidation zones)
         highs = recent['high'].values
         lows = recent['low'].values
         
-        # Find clusters of highs and lows
+        # clusters of highs and lows
         for high in np.percentile(highs, [75, 90, 100]):
             all_levels.append(float(high))
         for low in np.percentile(lows, [0, 10, 25]):
             all_levels.append(float(low))
         
-        # Separate into support (below) and resistance (above)
         support = sorted([level for level in all_levels if level < current_price], reverse=True)[:3]
         resistance = sorted([level for level in all_levels if level > current_price])[:3]
         
@@ -275,8 +297,33 @@ class IndicatorsProcessor:
         indicators['volume_ma20'] = float(vol_ma.iloc[-1] or 0)
         indicators['volume_current'] = current_vol
         indicators['volume_ratio'] = IndicatorsCalculator.volume_ratio(current_vol, indicators['volume_ma20'])
-        
-        
+
+        # Volume quality classification
+        volume_quality = classify_volume_quality(indicators['volume_ratio'])
+        indicators['volume_classification'] = volume_quality['classification']
+        indicators['volume_trading_allowed'] = volume_quality['trading_allowed']
+        indicators['volume_confidence_multiplier'] = volume_quality['confidence_multiplier']
+
+        # Days since last volume spike
+        indicators['days_since_volume_spike'] = IndicatorsCalculator.days_since_volume_spike(df, spike_threshold=1.5)
+
+        # Stochastic RSI
+        indicators['stoch_rsi'] = IndicatorsCalculator.stochastic_rsi(rsi_series, period=14)
+
+        # Kijun-Sen (Ichimoku Base Line)
+        indicators['kijun_sen'] = IndicatorsCalculator.kijun_sen(df, period=26)
+
+        # 14-day high/low for swing context
+        last_14d = df.tail(14)
+        indicators['high_14d'] = float(last_14d['high'].max())
+        indicators['low_14d'] = float(last_14d['low'].min())
+
+        # ATR as percentage of price
+        if current_price > 0 and indicators['atr'] > 0:
+            indicators['atr_percent'] = (indicators['atr'] / current_price) * 100
+        else:
+            indicators['atr_percent'] = 0.0
+
         # Fibonacci Retracement (ONLY 38.2% and 61.8% - key levels for swing trading)
         swing_high, swing_low = IndicatorsCalculator.find_recent_swing(df, 30)
         fib_levels = IndicatorsCalculator.fibonacci_retracement(swing_high, swing_low)
@@ -297,12 +344,10 @@ class IndicatorsProcessor:
         else:
             indicators['pivot_weekly'] = None
 
-        
-        # Support/Resistance 
         support_levels, resistance_levels = IndicatorsCalculator.find_support_resistance(df, current_price, 30)
 
         # Only process first 2 levels
-        for i in range(1, 3):  # Changed from range(1, 4) to range(1, 3)
+        for i in range(1, 3):  
             if i-1 < len(support_levels) and support_levels[i-1]:
                 level = support_levels[i-1]
                 percent_diff = ((current_price - level) / current_price) * 100
@@ -324,32 +369,39 @@ class IndicatorsProcessor:
         
         return indicators
 
-
     @staticmethod
-    def calculate_ticker_indicators(ticker_data: Dict, volume_ma20: float) -> Dict:
-        indicators = {}
+    def calculate_ticker_indicators(ticker_dict: Dict, volume_ma20: float) -> Dict:
+        try:
+            indicators = {}
 
-        # Momentum 24h
-        indicators['momentum_24h'] = float(ticker_data.get('priceChangePercent', 0))
+            current_price = float(ticker_dict.get('lastPrice', 0))
+            price_change_24h = float(ticker_dict.get('priceChangePercent', 0))
+            high_24h = float(ticker_dict.get('highPrice', 0))
+            low_24h = float(ticker_dict.get('lowPrice', 0))
+            volume_24h = float(ticker_dict.get('volume', 0))
 
-        # Range Position 24h (0=at low, 1=at high)
-        current = float(ticker_data['lastPrice'])
-        high_24h = float(ticker_data['highPrice'])
-        low_24h = float(ticker_data['lowPrice'])
-        range_24h = high_24h - low_24h
-        if range_24h > 0:
-            indicators['range_position_24h'] = (current - low_24h) / range_24h
-        else:
-            indicators['range_position_24h'] = 0.5
+            indicators['momentum_24h'] = price_change_24h
 
-        # Volume Surge 24h
-        volume_24h = float(ticker_data['volume'])
-        if volume_ma20 > 0:
-            indicators['volume_surge_24h'] = volume_24h / volume_ma20
-        else:
-            indicators['volume_surge_24h'] = 1.0
+            range_24h = high_24h - low_24h
+            if range_24h > 0:
+                indicators['range_position_24h'] = (current_price - low_24h) / range_24h
+            else:
+                indicators['range_position_24h'] = 0.5
 
-        return indicators
+            if volume_ma20 > 0:
+                indicators['volume_surge_24h'] = volume_24h / volume_ma20
+            else:
+                indicators['volume_surge_24h'] = 1.0
+
+            return indicators
+
+        except Exception as e:
+            print(f"⚠️  Error calculating ticker indicators: {e}")
+            return {
+                'momentum_24h': 0.0,
+                'range_position_24h': 0.0,
+                'volume_surge_24h': 0.0
+            }
 
 
 if __name__ == "__main__":

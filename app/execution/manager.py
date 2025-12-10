@@ -16,7 +16,7 @@ import json
 from app.agents.pipeline import TradingGraph
 from app.execution.engine import PaperTradingEngine, OrderType
 from app.database.config import get_db_session
-from app.database.models import TradeDecision, Position as PositionModel
+from app.database.models import TraderAnalyst, Position as PositionModel
 
 
 class ExecutionManager:
@@ -324,17 +324,11 @@ class ExecutionManager:
         try:
             db = get_db_session()
 
-            trade_decision = TradeDecision(
+            trade_decision = TraderAnalyst(
                 timestamp=datetime.now(),
-                symbol=self.symbol,
                 decision=execution_data['decision'],
                 confidence=execution_data['confidence'],
-                action=execution_data['action'],
-                reasoning=json.dumps(execution_data['analysis']),
-                entry_price=execution_data['entry_price'],
-                stop_loss=execution_data['stop_loss'],
-                take_profit=execution_data['take_profit'],
-                position_size=execution_data['position_size'],
+                reasoning=json.dumps(execution_data['analysis'])
             )
 
             db.add(trade_decision)

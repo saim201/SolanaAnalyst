@@ -3,10 +3,13 @@ Reflection Agent - Bull vs Bear debate system.
 Forces consideration of opposing viewpoints to detect blind spots.
 Uses structured 4-step analysis framework 
 """
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 import json
 import re
 from app.agents.base import BaseAgent, AgentState
 from app.agents.llm import llm
+from app.database.data_manager import DataManager
 
 
 BULL_SYSTEM_PROMPT = """You are the BULL ADVOCATE in a professional trading debate. Your role is to argue for a LONG (BUY) position on Solana.
@@ -121,6 +124,8 @@ Given BOTH perspectives:
 Provide your synthesis in EXACT JSON format:
 
 {{
+  "bull_case_summary": "...."
+  "bear_case_summary": "..."
   "bull_strength": 0.65,
   "bear_strength": 0.55,
   "consensus_points": ["point1", "point2"],
@@ -129,7 +134,7 @@ Provide your synthesis in EXACT JSON format:
     "bull_missing": ["risk1", "risk2"],
     "bear_missing": ["opportunity1", "opportunity2"]
   }},
-  "final_recommendation": "BUY|SELL|HOLD",
+  "recommendation": "BUY|SELL|HOLD",
   "confidence": 0.70,
   "primary_risk": "Description of main risk",
   "monitoring_trigger": "What to watch in next 24-48h",
@@ -146,32 +151,34 @@ class ReflectionAgent(BaseAgent):
         )
 
     def execute(self, state: AgentState) -> AgentState:
-        # Extract prior analyses
-        tech_recommendation = state.get('recommendation', 'HOLD')
-        tech_confidence = state.get('confidence', 0.5)
-        tech_reasoning = state.get('reasoning', 'No technical analysis')
-        news_analysis_str = state.get('news_analysis', '{}')
-        try:
-            news_analysis = json.loads(news_analysis_str)
-        except:
-            news_analysis = {}
 
-        news_recommendation = news_analysis.get('recommendation', 'NEUTRAL')
-        news_confidence = news_analysis.get('confidence', 0.5)
-        news_reasoning = news_analysis.get('reasoning', 'No news analysis')
+        techAnalyst = state['technical']
+        tech_recommendation = techAnalyst['recommendation']
+        tech_confidence = techAnalyst['confidence']
+        tech_reasoning = techAnalyst['reasoning']
+        tech_keySignals = techAnalyst['key_signals']
+
+        newsAnalyst = state['news']
+        news_recommendation = newsAnalyst['recommendation']
+        news_confidence = newsAnalyst['confidence']
+        news_reasoning = newsAnalyst['reasoning']
+        news_sentiment = newsAnalyst['overall_sentiment']
+        news_criticalEvents = newsAnalyst['critical_events']
+
+
 
         # summaries for debate
         technical_summary = f"""
 Recommendation: {tech_recommendation}
 Confidence: {tech_confidence:.0%}
-Key Signals: {', '.join(state.get('key_signals', [])[:3])}
+Key Signals: {', '.join(tech_keySignals)}
 Reasoning: {tech_reasoning}
 """
 
         news_summary = f"""
-Sentiment: {news_analysis.get('overall_sentiment', 0.5):.0%}
+Sentiment: {news_sentiment:.0%}
 Recommendation: {news_recommendation}
-Critical Events: {', '.join(news_analysis.get('critical_events', [])[:2])}
+Critical Events: {', '.join(news_criticalEvents)}
 Reasoning: {news_reasoning}
 """
 
@@ -229,35 +236,31 @@ Reasoning: {news_reasoning}
 
             synthesis_data = json.loads(synthesis_json)
 
-            state['reflection_analysis'] = json.dumps({
-                'bull_case_summary': bull_response[:300],
-                'bear_case_summary': bear_response[:300],
-                'synthesis': synthesis_data
-            })
+            state['reflection'] = synthesis_data
 
-            state['reflection_recommendation'] = synthesis_data.get('final_recommendation', tech_recommendation)
-            state['reflection_confidence'] = synthesis_data.get('confidence', tech_confidence)
-            state['primary_risk'] = synthesis_data.get('primary_risk', 'Unknown')
-            state['monitoring_trigger'] = synthesis_data.get('monitoring_trigger', 'None identified')
+            dm = DataManager()
+            dm.save_reflection_analysis(data=state['reflection'])
+        
 
         except (json.JSONDecodeError, ValueError) as e:
             print(f"⚠️  Reflection agent parsing error: {e}")
             print(f"Response: {synthesis_response[:300]}")
 
-            # Fallback: store raw debate
-            state['reflection_analysis'] = json.dumps({
+            state['reflection'] = {
                 'bull_case_summary': bull_response[:300],
                 'bear_case_summary': bear_response[:300],
-                'synthesis': {
-                    'final_recommendation': tech_recommendation,
-                    'confidence': tech_confidence * 0.9,  # Reduce confidence due to synthesis failure
-                    'reasoning': f"Debate synthesis failed: {str(e)[:100]}",
-                    'primary_risk': 'Synthesis error - proceed with caution'
-                }
-            })
-
-            state['reflection_recommendation'] = tech_recommendation
-            state['reflection_confidence'] = tech_confidence * 0.9
+                'recommendation': tech_recommendation,
+                'confidence': tech_confidence * 0.9,
+                'primary_risk': 'Synthesis error - proceed with caution',
+                'monitoring_trigger': 'None identified',
+                'reasoning': f"Debate synthesis failed: {str(e)[:100]}",
+                # Fixed: Added missing required fields
+                'bull_strength': 0.5,
+                'bear_strength': 0.5,
+                'consensus_points': [],
+                'conflict_points': [],
+                'blind_spots': ['Synthesis failed - unable to identify blind spots']
+            }
 
         return state
 
@@ -265,17 +268,24 @@ Reasoning: {news_reasoning}
 if __name__ == "__main__":
     agent = ReflectionAgent()
     test_state = AgentState({
-        'recommendation': 'BUY',
-        'confidence': 0.75,
-        'reasoning': 'Strong bullish MACD with price above EMA20',
-        'key_signals': ['price above EMA20', 'MACD bullish', 'volume acceptable'],
-        'news_analysis': json.dumps({
-            'overall_sentiment': 0.65,
-            'recommendation': 'BULLISH',
-            'confidence': 0.70,
-            'reasoning': 'Positive ecosystem growth with new partnerships',
-            'critical_events': ['DeFi TVL growth', 'New partnership announced']
-        })
+        'technical': {
+            'recommendation': 'HOLD',
+            'confidence': 0.45,
+            'confidence_breakdown': {"trend_strength": 0.4, "momentum_confirmation": 0.5, "volume_quality": 0.3, "risk_reward": 0.6, "final_adjusted": 0.45},
+            'timeframe': '1-5 days',
+            'key_signals': ["Price below key EMAs", "Weak volume at 0.88x", "Neutral momentum indicators"],
+            'entry_level': 0.00,
+            'stop_loss': 0.00,
+            'take_profit': 0.00,
+            'reasoning': 'Insufficient clear directional signals and weak volume suggest waiting for more definitive market structure. Current setup lacks the conviction required for a high-probability swing trade. Patience is recommended until volume confirms a clear trend.',
+        },
+        'news': {
+            'overall_sentiment': 0.62,
+            'recommendation': 'CAUTIOUSLY BULLISH',
+            'confidence': 0.65,
+            'reasoning': 'Positive ecosystem developments with cross-chain integration and mobile token launch offset by minor security concerns. Institutional interest remains steady.',
+            'critical_events': ["Coinbase/Chainlink Base-Solana Bridge", "Solana Mobile SKR Token Upcoming Launch", "Solmate RockawayX Acquisition"]
+        }
     })
 
     result = agent.execute(test_state)

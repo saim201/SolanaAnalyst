@@ -4,7 +4,7 @@ from datetime import datetime
 from app.database.config import Base
 
 
-class NewsData(Base):
+class NewsModel(Base):
     __tablename__ = 'news_data'
 
     id = Column(Integer, primary_key=True, index=True)
@@ -23,5 +23,3 @@ class NewsData(Base):
         Index('idx_news_priority', 'priority'),
     )
 
-    def __repr__(self):
-        return f"<NewsData(title={self.title[:50]}, sentiment={self.sentiment})>"
