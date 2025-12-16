@@ -19,7 +19,6 @@ class NewsModel(Base):
 
     __table_args__ = (
         Index('idx_news_published', 'published_at'),
-        Index('idx_news_sentiment', 'sentiment'),
         Index('idx_news_priority', 'priority'),
     )
 

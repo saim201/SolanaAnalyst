@@ -1,7 +1,5 @@
-"""
-Multi-source RSS News Fetcher for Solana
-Fetches from CoinDesk, CoinTelegraph, Decrypt, and Solana Status
-"""
+
+# Fetches from CoinDesk, CoinTelegraph, Decrypt, and Solana Status
 import feedparser
 import requests
 import sys
@@ -15,7 +13,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 
 class RSSNewsFetcher:
-    # Standard User-Agent to avoid being blocked
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     RSS_SOURCES = {
@@ -26,7 +23,7 @@ class RSSNewsFetcher:
 
     STATUS_API_URL = 'https://status.solana.com/api/v2/incidents.json'
 
-    TIMEOUT = 10  # Request timeout in seconds
+    TIMEOUT = 10 
 
     SOLANA_KEYWORDS = [
         'solana', 'sol', 'layer 1', 'l1',
@@ -43,14 +40,13 @@ class RSSNewsFetcher:
 
     def _normalize_title(self, title: str) -> str:
         normalized = title.lower()
-        normalized = re.sub(r'[^\w\s]', '', normalized)     # Remove punctuation
+        normalized = re.sub(r'[^\w\s]', '', normalized)  
         normalized = ' '.join(normalized.split())
         return normalized
 
+
     def _is_solana_relevant(self, text: str) -> bool:
         text_lower = text.lower()
-
-        # Exact match for 'sol' to avoid false positives
         if re.search(r'\bsol\b', text_lower):
             return True
 
@@ -60,69 +56,51 @@ class RSSNewsFetcher:
 
         return False
 
+
     def _calculate_priority(self, article: Dict) -> str:
-        """
-        Calculate priority level for an article
-
-        Args:
-            article: Article dictionary
-
-        Returns:
-            Priority level: 'CRITICAL', 'HIGH', or 'MEDIUM'
-        """
         title_lower = article['title'].lower()
         content_lower = article['content'].lower()
         combined = title_lower + ' ' + content_lower
         source = article['source']
 
-        # CRITICAL: Solana Status incidents or critical keywords
         if source == 'Solana Status':
             return 'CRITICAL'
-
         if any(keyword in combined for keyword in self.CRITICAL_KEYWORDS):
             return 'CRITICAL'
-
-        # HIGH: High priority keywords
         if any(keyword in combined for keyword in self.HIGH_KEYWORDS):
             return 'HIGH'
 
-        # MEDIUM: Everything else
         return 'MEDIUM'
+
 
     def _deduplicate_articles(self, articles: List[Dict]) -> List[Dict]:
         seen_titles = set()
         unique_articles = []
-
         for article in articles:
             normalized = self._normalize_title(article['title'])
-
             if normalized not in seen_titles:
                 seen_titles.add(normalized)
                 unique_articles.append(article)
 
         if len(unique_articles) < len(articles):
-            print(f"🔄 Deduplicated: removed {len(articles) - len(unique_articles)} duplicates")
+            print(f" Deduplicated: removed {len(articles) - len(unique_articles)} duplicates")
 
         return unique_articles
+
 
     def _fetch_rss_feed(self, url: str, source_name: str) -> List[Dict]:
         try:
             print(f"Fetching {source_name} RSS feed...")
-
             feed = feedparser.parse(url, agent=self.USER_AGENT)
-
             if not feed.entries:
                 print(f"  No entries found in {source_name}")
                 return []
 
             articles = []
-
             for entry in feed.entries:
                 try:
                     pub_date = self._parse_pub_date(entry)
-
                     content = self._extract_content(entry)
-
                     article = {
                         'title': entry.get('title', 'Untitled'),
                         'url': entry.get('link', ''),
@@ -133,59 +111,44 @@ class RSSNewsFetcher:
                     articles.append(article)
 
                 except Exception as e:
-                    print(f"⚠️  Error parsing entry from {source_name}: {str(e)}")
+                    print(f"  Error parsing entry from {source_name}: {str(e)}")
                     continue
 
             return articles
 
         except Exception as e:
-            print(f"❌ Error fetching {source_name}: {str(e)}")
+            print(f" Error fetching {source_name}: {str(e)}")
             return []
 
     def _parse_pub_date(self, entry) -> datetime:
-
         try:
-            # Try published_parsed first (most common)
             if hasattr(entry, 'published_parsed') and entry.published_parsed:
                 return datetime(*entry.published_parsed[:6])
-
-            # Try updated_parsed
             if hasattr(entry, 'updated_parsed') and entry.updated_parsed:
                 return datetime(*entry.updated_parsed[:6])
-
-            # Try published string
             if hasattr(entry, 'published'):
                 return parsedate_to_datetime(entry.published)
-
-            # Try updated string
             if hasattr(entry, 'updated'):
                 return parsedate_to_datetime(entry.updated)
-
-            # Fallback to current time
             return datetime.now()
 
         except Exception:
             return datetime.now()
 
+
     def _extract_content(self, entry) -> str:
         content = ""
-
-        # Try summary first
         if hasattr(entry, 'summary'):
             content = entry.summary
-        # Try description
         elif hasattr(entry, 'description'):
             content = entry.description
-        # Fall back to title
         elif hasattr(entry, 'title'):
             content = entry.title
 
-        # Remove HTML tags (basic cleanup)
         content = content.replace('<p>', '').replace('</p>', '')
         content = content.replace('<br>', ' ').replace('<br/>', ' ')
         content = content.replace('&nbsp;', ' ')
 
-        # Truncate to 500 chars
         return content[:500] if content else ""
 
 

@@ -33,6 +33,7 @@ class DataQuery:
         for article in news:
             news_data.append({
                 'title': article.title,
+                'url': article.url,
                 'source': article.source,
                 'published_at': article.published_at.isoformat(),
                 'priority': article.priority,

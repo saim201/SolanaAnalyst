@@ -141,3 +141,28 @@ class RefreshDataResponse(BaseModel):
 class ErrorResponse(BaseModel):
     """Error response"""
     detail: str
+
+
+class TechnicalDataResponse(BaseModel):
+    """Response from technical data endpoint"""
+    currentPrice: float
+    priceChange24h: float
+    ema50: float
+    ema200: float
+    support: float
+    resistance: float
+    volume_current: float
+    volume_average: float
+    volume_ratio: float
+    rsi: float
+    macd_line: float
+    macd_signal: float
+    timestamp: str
+    # Additional indicators
+    ema20: Optional[float] = None
+    bb_upper: Optional[float] = None
+    bb_lower: Optional[float] = None
+    atr: Optional[float] = None
+    support1: Optional[float] = None
+    resistance1: Optional[float] = None
+    pivot_weekly: Optional[float] = None

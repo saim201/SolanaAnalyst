@@ -103,6 +103,8 @@ Reasoning: {news_reasoning}
 <synthesis_task>
 Your job is to synthesise both arguments and make a FINAL CALL.
 
+<thinking>
+
 STEP 1: IDENTIFY AGREEMENTS
 Where do both bull and bear agree? (These are high-confidence facts)
 
@@ -119,8 +121,10 @@ Given BOTH perspectives:
 - What's your confidence (0.0 to 1.0)?
 - What's the primary risk to this trade?
 - What's the key monitoring point for next 24-48 hours?
-</synthesis_task>
 
+</thinking>
+
+<answer>
 Provide your synthesis in EXACT JSON format:
 
 {{
@@ -140,6 +144,11 @@ Provide your synthesis in EXACT JSON format:
   "monitoring_trigger": "What to watch in next 24-48h",
   "reasoning": "Final synthesis in 2-3 sentences"
 }}
+
+</answer>
+
+</synthesis_task>
+
 """
 
 
@@ -243,7 +252,7 @@ Reasoning: {news_reasoning}
         
 
         except (json.JSONDecodeError, ValueError) as e:
-            print(f"⚠️  Reflection agent parsing error: {e}")
+            print(f"  Reflection agent parsing error: {e}")
             print(f"Response: {synthesis_response[:300]}")
 
             state['reflection'] = {
@@ -254,7 +263,6 @@ Reasoning: {news_reasoning}
                 'primary_risk': 'Synthesis error - proceed with caution',
                 'monitoring_trigger': 'None identified',
                 'reasoning': f"Debate synthesis failed: {str(e)[:100]}",
-                # Fixed: Added missing required fields
                 'bull_strength': 0.5,
                 'bear_strength': 0.5,
                 'consensus_points': [],
@@ -269,22 +277,59 @@ if __name__ == "__main__":
     agent = ReflectionAgent()
     test_state = AgentState({
         'technical': {
-            'recommendation': 'HOLD',
-            'confidence': 0.45,
-            'confidence_breakdown': {"trend_strength": 0.4, "momentum_confirmation": 0.5, "volume_quality": 0.3, "risk_reward": 0.6, "final_adjusted": 0.45},
-            'timeframe': '1-5 days',
-            'key_signals': ["Price below key EMAs", "Weak volume at 0.88x", "Neutral momentum indicators"],
-            'entry_level': 0.00,
-            'stop_loss': 0.00,
-            'take_profit': 0.00,
-            'reasoning': 'Insufficient clear directional signals and weak volume suggest waiting for more definitive market structure. Current setup lacks the conviction required for a high-probability swing trade. Patience is recommended until volume confirms a clear trend.',
+            'recommendation': 'BUY',
+            'confidence': 0.72,
+            'timeframe': '3-7 days',
+            'key_signals': [
+                "Strong bullish momentum with RSI at 68 (not overbought)",
+                "Price breaking above EMA50 resistance at $145.20",
+                "Volume surge of 1.8x average (institutional interest)",
+                "MACD crossover indicating upward trend continuation",
+                "Support level holding strong at $142.50"
+            ],
+            'entry_level': 145.50,
+            'stop_loss': 142.00,
+            'take_profit': 155.00,
+            'reasoning': "Technical indicators suggest a strong bullish setup. The price has successfully broken above the key EMA50 resistance level with significant volume confirmation. RSI is in a healthy range (68), indicating room for further upside. The MACD crossover and strong support at $142.50 provide additional confidence. Risk/reward ratio is favorable at approximately 1:3.2.",
+            'confidence_breakdown': {
+                'trend_strength': 0.75,
+                'momentum_confirmation': 0.80,
+                'volume_quality': 0.85,
+                'risk_reward': 0.60,
+                'final_adjusted': 0.72
+            },
+            'recommendation_summary': 'HOLD CASH. The current Solana market is untradeable due to critically low volume (61,354 trades vs 3.4M average) and complete lack of directional momentum. Buy pressure has collapsed to 35.5%, signaling zero conviction. Do NOT attempt to trade until: (1) Daily volume returns to >3M trades, (2) Buy pressure recovers above 50%, (3) Price shows clear directional movement above or below key support/resistance levels. Potential downside risk is significant with current market structure.',
+            'watch_list': {
+                'confirmation_signals': ["Daily volume returns to >3M trades", "Buy pressure recovers above 50%", "Price breaks and holds above $136.48 or below $128.87 on strong volume"],
+                'invalidation_signals': ["Continued low volume (<1M daily trades)", "Buy pressure remains below 40%", "Price continues to chop in narrow range"],
+                'key_levels_24_48h': ["$136.48 - Potential resistance", "$128.87 - Potential support", "$125.92 - Lower support level"],
+                'time_based_triggers': ["24 hours: Monitor volume and buy pressure", "48 hours: If no clear directional move, remain in cash"]
+            }
         },
         'news': {
             'overall_sentiment': 0.62,
-            'recommendation': 'CAUTIOUSLY BULLISH',
+            'sentiment_label': 'NEUTRAL-BULLISH',
             'confidence': 0.65,
-            'reasoning': 'Positive ecosystem developments with cross-chain integration and mobile token launch offset by minor security concerns. Institutional interest remains steady.',
-            'critical_events': ["Coinbase/Chainlink Base-Solana Bridge", "Solana Mobile SKR Token Upcoming Launch", "Solmate RockawayX Acquisition"]
+            'all_recent_news': [
+                {'title': 'Ondo Finance Tokenized Stocks on Solana', 'published_at': '2025-12-15T15:49:41', 'url': 'https://www.coindesk.com/business/2025/12/15/ondo-finance-to-offer-tokenized-u-s-stocks-etfs-on-solana-early-next-year', 'source': 'CoinDesk'},
+                {'title': 'CME Group Solana Futures', 'published_at': '2025-12-15T16:07:00', 'url': 'https://www.coindesk.com/markets/2025/12/15/cme-group-expands-crypto-derivatives-with-spot-quoted-xrp-and-solana-futures', 'source': 'CoinDesk'}
+            ],
+            'key_events': [
+                {'title': 'Ondo Finance Tokenized Stocks on Solana', 'published_at': '2025-12-15T15:49:41', 'url': 'https://www.coindesk.com/business/2025/12/15/ondo-finance-to-offer-tokenized-u-s-stocks-etfs-on-solana-early-next-year', 'type': 'PARTNERSHIP', 'source_credibility': 'REPUTABLE', 'news_age_hours': 12, 'impact': 'BULLISH', 'reasoning': "Expanding Solana's real-world asset tokenization capabilities"},
+                {'title': 'CME Group Solana Futures', 'published_at': '2025-12-15T16:07:00', 'url': 'https://www.coindesk.com/markets/2025/12/15/cme-group-expands-crypto-derivatives-with-spot-quoted-xrp-and-solana-futures', 'type': 'PARTNERSHIP', 'source_credibility': 'REPUTABLE', 'news_age_hours': 12, 'impact': 'BULLISH', 'reasoning': 'Institutional derivatives product increases SOL legitimacy'},
+                {'title': 'Solana Liquidity Challenges', 'published_at': '2025-12-10T05:03:08', 'url': 'https://decrypt.co/351743/solana-liquidity-plummets-bear-level-500m-liquidation-overhang', 'type': 'ECOSYSTEM', 'source_credibility': 'REPUTABLE', 'news_age_hours': 120, 'impact': 'BEARISH', 'reasoning': 'Declining Total Value Locked and memecoin demand weakness'}
+            ],
+            'event_summary': {
+                'actionable_catalysts': 2,
+                'hype_noise': 1,
+                'critical_risks': 1
+            },
+            'risk_flags': ['Declining Total Value Locked', 'Liquidity challenges in ecosystem'],
+            'stance': "News is cautiously bullish. Visa partnership is a strong positive catalyst, but recent network issues create some concern. Overall, news SUPPORTS taking long positions but with reduced position size due to reliability questions.",
+            'suggested_timeframe': '3-5 days',
+            'recommendation_summary': "News presents a cautiously bullish 0.62 sentiment. CME futures and Ondo Finance partnerships provide strong institutional validation, offsetting recent liquidity concerns. Traders should maintain positions but with reduced size, watching for network stability and further institutional adoption signals.",
+            'what_to_watch': ['Ondo Finance tokenization launch details', 'CME Solana futures trading volume', 'Total Value Locked trend'],
+            'invalidation': "Sustained decline in TVL below current levels OR failure to generate meaningful institutional product adoption."
         }
     })
 

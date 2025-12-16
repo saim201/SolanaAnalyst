@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str
     COINGECKO_API_KEY: Optional[str] = None
     SOLSCAN_API_KEY: Optional[str] = None
+    HELIUS_API_KEY: Optional[str] = None
 
     # Scheduler
     SCHEDULER_ENABLED: bool = True
@@ -27,7 +28,6 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     class Config:
-        """Pydantic config"""
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True

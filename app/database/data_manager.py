@@ -274,6 +274,8 @@ class DataManager:
             'take_profit': data.get('take_profit'),
             'key_signals': data.get('key_signals'),
             'reasoning': data.get('reasoning'),
+            'recommendation_summary': data.get('recommendation_summary'),
+            'watch_list': data.get('watch_list'),
             'thinking': data.get('thinking')
         }
         
@@ -296,16 +298,17 @@ class DataManager:
         
         record = {
             'overall_sentiment': data.get('overall_sentiment'),
-            'sentiment_trend': data.get('sentiment_trend'),
-            'sentiment_breakdown': data.get('sentiment_breakdown'),
-            'recommendation': data.get('recommendation'),
+            'sentiment_label': data.get('sentiment_label'),
             'confidence': data.get('confidence'),
-            'hold_duration': data.get('hold_duration'),
-            'critical_events': data.get('critical_events'),
-            'event_classification': data.get('event_classification'),
+            'key_events': data.get('key_events'),
+            'all_recent_news': data.get('all_recent_news'),
+            'event_summary': data.get('event_summary'),
             'risk_flags': data.get('risk_flags'),
-            'time_sensitive_events': data.get('time_sensitive_events'),
-            'reasoning': data.get('reasoning'),
+            'stance': data.get('stance'),
+            'suggested_timeframe': data.get('suggested_timeframe'),
+            'recommendation_summary': data.get('recommendation_summary'),
+            'what_to_watch': data.get('what_to_watch'),
+            'invalidation': data.get('invalidation'),
             'thinking': data.get('thinking')
         }
         

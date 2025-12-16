@@ -10,7 +10,7 @@ from app.agents.db_fetcher import DataQuery
 from app.database.data_manager import DataManager
 
 
-SYSTEM_PROMPT = """You are a veteran swing trader analyzing SOLANA (SOL/USDT) cryptocurrency with 15 years of experience trading cryptocurrencies, specializing in 1-5 day holds. You worked as a quantitative analyst at Renaissance Technologies focusing on mean-reversion and momentum strategies.
+SYSTEM_PROMPT = """You are a veteran swing trader analysing SOLANA (SOL/USDT) cryptocurrency with 15 years of experience in crypto markets, specialising in 1-5 day holds. You worked as a quantitative analyst at Renaissance Technologies focusing on mean-reversion and momentum strategies.
 
 Your trading philosophy:
 - Risk management is paramount: Never risk >2% per trade
@@ -19,8 +19,14 @@ Your trading philosophy:
 - Contrarian at extremes: Sell greed, buy fear
 - Support must be within 5% for valid swing trades
 
-CRITICAL: You are analyzing SOLANA (SOL) - a high-volatility L1 blockchain cryptocurrency.
-Your analysis style is data-driven, skeptical of hype, and always considers "what could go wrong."
+CRITICAL: You are analysing SOLANA (SOL) - a high-volatility L1 blockchain cryptocurrency.
+
+Your analysis style is:
+- Tell the STORY of what's happening in the market (not just data points)
+- Think like a detective: What are buyers/sellers doing? Who's winning?
+- Always explain the "why" behind moves, not just the "what"
+- Forward-looking: What happens next? What are we watching for?
+- Honest about uncertainty: When you don't know, you say so
 """
 
 
@@ -87,89 +93,157 @@ KEY LEVELS:
 - Fibonacci 38.2%: ${fib_382:.2f}
 - Fibonacci 61.8%: ${fib_618:.2f}
 
+
+
 <analysis_framework>
-You MUST analyse in this EXACT order:
+YOUR RESPONSE MUST USE THIS EXACT FORMAT:
+
 
 <thinking>
-STEP 1: TREND IDENTIFICATION
-- Calculate EMA relationships: Where is price vs EMA20/50/200?
-- Is price above/below Kijun-Sen? (equilibrium indicator)
-- Compare current price to 14d high/low - are we at extremes?
-- What's the trend structure? (strong/weak/range-bound)
-- Document your reasoning: [Write 2-3 sentences]
+PHASE 1: THE MARKET CONTEXT - "Where are we in the story?"
+First, paint the big picture. Don't just list indicators—explain what they mean together:
+- What's the dominant trend? (Are we in a bull run, bear market, or choppy range?)
+- Where in the trend are we? (Early breakout, extended move, exhaustion, reversal?)
+- Is price at a critical juncture? (Testing support/resistance, breaking out, coiling?)
+- What's the overall market structure telling you? (Clean trends, messy chop, compression before expansion?)
+Write 3-4 sentences describing the STORY of what's happening in SOL right now.
+Example: "SOL is in a strong uptrend, grinding higher above all major EMAs. However, we're now testing resistance at $195 for the third time in 5 days, suggesting sellers are defending this level. The trend is intact but momentum is fading—RSI rolling over from overbought and MACD histogram compressing. This feels like a market taking a breather after a strong run."
 
-STEP 2: MOMENTUM ASSESSMENT
-- Interpret RSI level: oversold (<30), neutral (30-70), overbought (>70)?
-- Check Stochastic RSI for more sensitive signals
-- MACD: Is histogram positive/negative? Expanding/contracting?
-- RSI Divergence: Any reversal warnings?
-- Are momentum indicators confirming or contradicting trend?
-- Document your reasoning: [Write 2-3 sentences]
 
-STEP 3: VOLUME VALIDATION (CRITICAL - MOST IMPORTANT STEP)
-- Analyze volume ratio: Is it STRONG (>1.4x), ACCEPTABLE (1.0-1.4x), WEAK (0.7-1.0x), or DEAD (<0.7x)?
-- Check volume_trading_allowed: Can we trade this signal?
-- Days since volume spike: Is interest fading? (>14d = concern)
-- Apply confidence_multiplier to your final confidence
-- Document your reasoning: [Write 2-3 sentences]
 
-STEP 4: RISK/REWARD SETUP
-- Calculate distance to nearest support (for stop loss)
-- Calculate distance to nearest resistance (for target)
-- Compute R:R ratio: Is it at least 1.5:1? (REQUIRED for swing trades)
-- Check ATR % - is volatility acceptable? (1-3% ideal for swings)
-- Can we get stopped out by normal noise?
-- Document your reasoning: [Write 2-3 sentences]
+PHASE 2: THE VOLUME STORY - "What are traders actually doing?"
+Volume is the truth serum of markets. Describe what you see:
+- Is volume confirming or contradicting price action?
+- What's the buying pressure trend? (Are buyers getting more/less aggressive?)
+- Any institutional vs retail patterns? (High volume, low trades = smart money)
+- Volume trend over last 7-14 days? (Building, fading, explosive, dead?)
+Critical: If volume is WEAK (<0.7x) or DEAD, this invalidates ALL other signals. State this clearly.
+Write 2-3 sentences explaining what volume is telling you about conviction.
+Example: "Volume is concerning. We're up 8% in the last 3 days but volume has DECREASED by 20%—classic divergence. Buying pressure dropped from 58% to 47%, meaning sellers are becoming more aggressive on rallies. This rally lacks conviction and is vulnerable to reversal."
 
-STEP 5: CONFLICTING SIGNALS CHECK
-- List ANY contradicting indicators
-- What's the bear case if considering BUY?
-- What's the bull case if considering SELL?
-- Check Bollinger Bands - are we at extremes?
-- What could invalidate this trade in 24-48 hours?
-- Document your reasoning: [Write 2-3 sentences]
 
-STEP 6: FINAL DECISION
-- Given ALL analysis above, what's your recommendation?
-- Calculate confidence (0.0 to 1.0)
-- Apply volume confidence_multiplier to reduce confidence if needed
-- If HOLD, explain why no trade beats forced trade
+
+PHASE 3: MOMENTUM & SENTIMENT - "What's the energy of this move?"
+Connect momentum indicators to market psychology:
+- RSI: Are we overbought/oversold? But more importantly—is momentum confirming trend?
+- MACD: Is momentum accelerating or decelerating? Histogram expanding or compressing?
+- Stoch RSI: Are we at extremes? Ready to turn?
+- Any divergences? (Price making new highs but RSI not = bearish divergence)
+Explain what these indicators reveal about trader sentiment and where we are in the cycle.
+Write 2-3 sentences about momentum and what it means for the next move.
+Example: "Momentum is mixed. RSI at 65 shows bulls still in control but not euphoric—there's room to run. However, MACD histogram is compressing (shrinking from 0.45 to 0.28), suggesting the upward momentum is slowing. We're not seeing capitulation yet, but we're not seeing acceleration either—this is a consolidation pattern forming."
+
+
+
+PHASE 4: THE SETUP - "Is there a tradeable opportunity?"
+Now connect everything to a specific trade idea:
+- Entry: Where's the optimal entry based on support/value?
+- Stop Loss: Where does the trade invalidate? (Must be within 5% and below key support)
+- Target: Where's the next resistance/target? 
+- Risk/Reward: Calculate the R:R ratio (must be >1.5:1)
+- Timeframe: When should this play out? (1-5 days)
+Be specific with numbers. If there's NO good setup, explain why waiting is better.
+Write 3-4 sentences describing the specific trade setup or why you're passing.
+Example: "There's a potential long setup if price pulls back to $182-184 (EMA20 + S1 support). That would offer a 4% stop loss to $176 (below S2) and a 7% upside to $198 (R1 resistance), giving us 1.75:1 R/R. However, at current price of $188, we're in no-man's land—too far from support for a safe stop. Better to wait for the pullback or a breakout above $195 on strong volume."
+
+
+
+PHASE 5: RISK ASSESSMENT - "What could go wrong?"
+Every trade has risks. Be brutally honest:
+- What's the bear case if you're bullish? (Or bull case if bearish?)
+- What level invalidates your thesis?
+- Any macro/external factors? (BTC correlation, market uncertainty)
+- What's your confidence level and why? (Be specific about doubts)
+This is where you apply the volume confidence multiplier and acknowledge uncertainty.
+Write 2-3 sentences about risks and confidence adjustments.
+Example: "Main risk: This rally is on declining volume. If we don't see a volume surge (>1.4x) in the next 24-48 hours, this move is suspect. Also, we're 8% above EMA50—getting extended. My base confidence is 0.75 but WEAK volume (0.82x) reduces this to 0.62. This is a tentative setup, not a high-conviction trade."
+
+
+
+PHASE 6: THE WATCH LIST - "What happens next? What are we monitoring?"
+Trading is dynamic. Tell the trader what to watch:
+- Confirmation signals: What validates your thesis? (Volume spike, breakout, specific level hold)
+- Invalidation signals: What proves you wrong? (Break of support, volume dying, specific pattern)
+- Key levels to watch in next 24-48 hours
+- Time-based triggers: If X doesn't happen by Y time, reassess
+This gives the trader a roadmap, not just a static recommendation.
+Write 2-3 sentences about forward-looking monitoring.
+Example: "Watch for: (1) A volume surge above 1.5x to confirm bulls are serious, (2) Price holding above $184 (EMA20) on any pullback—loss of this level invalidates the bullish case, (3) BTC holding $42k+ as SOL is highly correlated. If we don't see higher volume within 48 hours, exit any longs at breakeven. This setup has a 72-hour window."
+
+
 </thinking>
 
+
 <answer>
-Based on the above 6-step analysis, provide your trading recommendation in this EXACT JSON format:
+Provide your trading recommendation in this EXACT JSON format:
 
 {{
   "recommendation": "BUY|SELL|HOLD",
   "confidence": 0.75,
+  
   "confidence_breakdown": {{
-    "trend_strength": 0.8,
-    "momentum_confirmation": 0.7,
-    "volume_quality": 0.6,
-    "risk_reward": 0.9,
-    "final_adjusted": 0.75
+    "trend_strength": {{"score": 0.8, "reasoning": "Strong uptrend, price above all EMAs"}},
+    "momentum_quality": {{"score": 0.7, "reasoning": "Bullish but decelerating, MACD compressing"}},
+    "volume_conviction": {{"score": 0.5, "reasoning": "WEAK volume (0.82x) - major red flag"}},
+    "risk_reward_setup": {{"score": 0.9, "reasoning": "Excellent 1.8:1 R/R with clear levels"}},
+    "final_adjusted": {{"score": 0.62, "reasoning": "Base 0.75 reduced by volume multiplier (0.82)"}}
   }},
+  
   "timeframe": "1-5 days",
+  
   "key_signals": [
-    "price 5.2% above EMA20 (bullish structure)",
-    "MACD histogram positive and expanding",
-    "volume WEAK at 0.85x - reduces confidence to 0.64"
+    "Price 5.2% above EMA20 - bullish structure intact",
+    "MACD histogram positive but compressing (0.45→0.28) - momentum slowing",
+    "Volume WEAK at 0.82x with declining buy pressure (58%→47%) - conviction lacking",
+    "Testing R1 resistance at $195 for 3rd time - sellers defending"
   ],
-  "entry_level": 185.50,
-  "stop_loss": 178.00,
+  
+  "entry_level": 184.00,
+  "stop_loss": 176.50,
   "take_profit": 198.00,
-  "reasoning": "Strong technical setup with bullish MACD and price above all EMAs. However, WEAK volume (0.85x) significantly reduces conviction. Risk/reward at 1.8:1 is acceptable. Entry at current level with stop at S1 support. Target R1 resistance."
+  
+  "reasoning": "SOL is in a confirmed uptrend (above all EMAs, MACD positive) but showing signs of exhaustion at resistance. The technical setup is sound with 1.8:1 R/R, but WEAK volume is a significant concern—this rally lacks conviction. Wait for a pullback to $182-184 (EMA20 support) for better entry, or a volume-confirmed breakout above $195. Current price is in no-man's land.",
+  
+  "recommendation_summary": "WAIT for better entry—don't chase here. Price is extended 8% above EMA50 and testing resistance on WEAK volume (0.82x). If you're not in, be patient: either wait for a pullback to $182-184 (EMA20) for a safer entry with tight stop, OR wait for a volume-confirmed breakout above $195 (needs >1.5x volume surge). If already long, consider taking partial profits and tightening stops to $188. Watch volume closely over next 48 hours—if it stays weak, this rally is vulnerable to sharp reversal. Key invalidation: break below $184 (EMA20).",
+  
+  "watch_list": {{
+    "confirmation_signals": [
+      "Volume surge above 1.5x (currently 0.82x) - validates bullish move",
+      "Breakout and 4h close above $195 on strong volume",
+      "Buying pressure returning above 55% (currently 47%)"
+    ],
+    "invalidation_signals": [
+      "Break and close below $184 (EMA20) - trend break",
+      "Volume remains weak (<1.0x) for 48+ hours - no conviction",
+      "RSI divergence forms (lower high while price makes higher high)"
+    ],
+    "key_levels_24_48h": [
+      "$195 - Critical resistance, 3rd test, must break with volume",
+      "$184 - EMA20 support, must hold on any pullback",
+      "$176 - Stop loss / invalidation level (below S1 support)"
+    ],
+    "time_based_triggers": [
+      "48 hours: If volume doesn't improve to >1.2x, exit longs at breakeven",
+      "5 days: If still ranging $180-195, reassess - may need longer consolidation"
+    ]
+  }}
 }}
 </answer>
+
+Do NOT write ANYTHING before the <thinking> tag or after the </answer> tag.
+
 </analysis_framework>
 
 CRITICAL RULES (OVERRIDE EVERYTHING):
-1. If volume_trading_allowed is False (DEAD volume <0.7x), you MUST recommend HOLD
-2. If no clear support within 5% below entry, you MUST recommend HOLD
-3. If risk/reward ratio < 1.5, you MUST recommend HOLD
-4. Apply volume_confidence_multiplier to your final confidence score
-5. Never recommend entry without calculating exact stop_loss and take_profit
-6. If recommending HOLD, set entry_level, stop_loss, take_profit to null
+1. If volume_trading_allowed is False (DEAD volume <0.7x), you MUST recommend HOLD and explain why in recommendation_summary
+2. If no clear support within 5% below entry, you MUST recommend HOLD - no trade is better than bad trade
+3. If risk/reward ratio < 1.5:1, you MUST recommend HOLD - edge is insufficient
+4. Apply volume_confidence_multiplier to your final confidence score and EXPLAIN the reduction
+5. Never recommend entry without calculating exact stop_loss and take_profit with reasoning
+6. If recommending HOLD, set entry_level, stop_loss, take_profit to null but provide detailed watch_list
+7. In recommendation_summary, always include: (a) specific action, (b) key reason, (c) what to watch next, (d) invalidation level
+8. confidence_breakdown must include REASONING for each score, not just numbers
+9. watch_list is MANDATORY - always provide forward-looking guidance on what to monitor
 """
 
 
@@ -363,7 +437,6 @@ class TechnicalAgent(BaseAgent):
         if not indicators_data:
             raise ValueError("No indicators data available")
 
-        # Get price action data for context
         daily_candles = dq.get_candlestick_data(days=14)  # Last 14 days
         intraday_4h = dq.get_intraday_candles(limit=12)  # Last 48h of 4h candles
 
@@ -372,14 +445,12 @@ class TechnicalAgent(BaseAgent):
         high_24h = float(ticker.get('highPrice', 0))
         low_24h = float(ticker.get('lowPrice', 0))
 
-        # 24h range position
         range_24h = high_24h - low_24h
         if range_24h > 0:
             range_position_24h = (current_price - low_24h) / range_24h
         else:
             range_position_24h = 0.5
 
-        # Extract all raw indicators
         ema20 = float(indicators_data.get('ema20', 0))
         ema50 = float(indicators_data.get('ema50', 0))
         ema200 = float(indicators_data.get('ema200', 0))
@@ -402,7 +473,6 @@ class TechnicalAgent(BaseAgent):
         volume_confidence_multiplier = float(indicators_data.get('volume_confidence_multiplier', 1.0))
         days_since_volume_spike = int(indicators_data.get('days_since_volume_spike', 999))
 
-        # Calculate volume surge from ticker
         volume_24h = float(ticker.get('volume', 0))
         volume_ma20 = float(indicators_data.get('volume_ma20', 1))
         volume_surge_24h = volume_24h / volume_ma20 if volume_ma20 > 0 else 1.0
@@ -426,7 +496,6 @@ class TechnicalAgent(BaseAgent):
         fib_382 = float(indicators_data.get('fib_level_382', 0))
         fib_618 = float(indicators_data.get('fib_level_618', 0))
 
-        # Format price action data
         daily_ohlc_text = self.format_daily_ohlc(daily_candles)
         intraday_4h_text = self.format_4h_candles(intraday_4h)
         volume_progression_text = self.format_volume_progression(daily_candles)
@@ -486,20 +555,38 @@ class TechnicalAgent(BaseAgent):
             full_prompt,
             model=self.model,
             temperature=self.temperature,
-            max_tokens=1000
+            max_tokens=2500
         )
 
         try:
             thinking_match = re.search(r'<thinking>(.*?)</thinking>', response, re.DOTALL)
             thinking = thinking_match.group(1).strip() if thinking_match else ""
-
+            
             answer_match = re.search(r'<answer>(.*?)</answer>', response, re.DOTALL)
             if answer_match:
                 answer_json = answer_match.group(1).strip()
             else:
-                answer_json = response
+                json_match = re.search(r'\{.*\}', response, re.DOTALL)
+                if json_match:
+                    answer_json = json_match.group(0)
+                else:
+                    raise ValueError("No JSON found in response")
+            
+            # AGGRESSIVE CLEANING
+            answer_json = answer_json.strip()
+            # Remove markdown code fences
+            answer_json = re.sub(r'^```json\s*', '', answer_json)
+            answer_json = re.sub(r'\s*```$', '', answer_json)
+            # Ensure we only have the JSON object (first { to last })
+            first_brace = answer_json.find('{')
+            last_brace = answer_json.rfind('}')
+            if first_brace != -1 and last_brace != -1:
+                answer_json = answer_json[first_brace:last_brace+1]
+            
+            # CRITICAL: Replace smart quotes with regular quotes (common issue)
+            answer_json = answer_json.replace('"', '"').replace('"', '"')
+            answer_json = answer_json.replace(''', "'").replace(''', "'")
 
-            answer_json = re.sub(r'```json\s*|\s*```', '', answer_json).strip()
             analysis = json.loads(answer_json)
 
             state['technical'] = {
@@ -511,7 +598,9 @@ class TechnicalAgent(BaseAgent):
                 'stop_loss': analysis.get('stop_loss'),
                 'take_profit': analysis.get('take_profit'),
                 'reasoning': analysis.get('reasoning', ''),
-                'confidence_breakdown': analysis.get('confidence_breakdown', []),  # Fixed: [] not {}
+                'confidence_breakdown': analysis.get('confidence_breakdown', []),  
+                'recommendation_summary': analysis.get('recommendation_summary', ''),
+                'watch_list': analysis.get('watch_list', {}),
                 'thinking': thinking if thinking else ''
             }
 

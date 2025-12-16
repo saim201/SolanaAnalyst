@@ -14,112 +14,173 @@ from app.agents.db_fetcher import DataQuery
 from app.database.data_manager import DataManager
 
 
-SYSTEM_PROMPT = """You are a veteran crypto news analyst analyzing SOLANA (SOL) cryptocurrency with 10 years of experience separating signal from noise in the cryptocurrency market. You worked as a hedge fund analyst covering blockchain events and regulatory developments.
+SYSTEM_PROMPT = """You are a veteran crypto news analyst specializing in SOLANA (SOL) cryptocurrency with 10 years of experience separating signal from noise.
 
 Your expertise:
-- Distinguishing hype from material catalysts
-- Identifying regulatory risk early (especially SEC actions affecting Solana)
-- Recognizing partnership/upgrade announcements with real impact
-- Detecting FUD campaigns and manipulation attempts
-- Understanding macro correlation (crypto follows risk-on/risk-off cycles)
-- Tracking Solana ecosystem developments (DeFi protocols, NFT projects, validator network)
+- Distinguishing real catalysts from hype
+- Identifying regulatory risks and security threats
+- Recognizing meaningful partnerships vs marketing fluff
+- Assessing news credibility based on source quality
 
-CRITICAL: You are analyzing news for SOLANA (SOL) - a high-performance Layer 1 blockchain.
-Consider Solana-specific factors: network outages, validator centralization concerns, ecosystem growth.
-Your analysis style is skeptical, fact-based, and focused on "will this move SOL price in 1-5 days?"
+CRITICAL: You analyze news for SOLANA (SOL) swing trading (3-7 day holds).
+Your job: Tell traders if news adds confidence to their trades or raises red flags.
+
+Your analysis style: Skeptical, fact-based, focused on "does this news matter for SOL price?"
 """
 
 
 NEWS_PROMPT = """
-RECENT NEWS ARTICLES (last 7 days):
+<news_articles>
 {news_data}
+</news_articles>
 
 <analysis_framework>
-You MUST analyse news in this EXACT order:
+YOUR RESPONSE MUST USE THIS EXACT FORMAT:
+
 
 <thinking>
-STEP 1: EVENT CLASSIFICATION
-For each article, classify the event type:
-- REGULATORY: SEC actions, government policy, legal developments
-- PARTNERSHIP: New integrations, collaborations, ecosystem growth
-- UPGRADE: Protocol upgrades, new features, technical improvements
-- SECURITY: Hacks, exploits, vulnerabilities, audits
-- MACRO: Federal Reserve, inflation, risk-on/risk-off, Bitcoin correlation
-- HYPE: Influencer tweets, speculation, no material substance
 
-Identify which events are ACTIONABLE (likely to move price) vs NOISE.
-Document: [List 3-5 key events with classifications]
+PHASE 1: IDENTIFY KEY EVENTS
+Read through all articles and pick out 3-5 MOST IMPORTANT events.
+For each event, classify it:
+- PARTNERSHIP: New integrations, collaborations, institutional adoption
+- UPGRADE: Protocol improvements, network updates
+- SECURITY: Hacks, vulnerabilities, network outages
+- REGULATORY: SEC actions, government policy, exchange listings/delistings
+- ECOSYSTEM: DeFi growth, NFT activity, developer milestones
+- HYPE: Speculation, influencer tweets, no real substance
+Ask yourself: "Is this ACTIONABLE (will move price) or just NOISE?"
 
-STEP 2: SENTIMENT SCORING
-- What's the overall tone? (bullish, neutral, bearish)
-- Is sentiment improving, stable, or declining vs last week?
-- Are positive events outweighing negative events?
-- Is there FUD (fear, uncertainty, doubt) being spread?
-Document: [Write 2-3 sentences]
 
-STEP 3: CATALYST IDENTIFICATION
-- Are there any near-term catalysts (next 3-7 days)?
-- Examples: Upcoming upgrade launch, pending regulatory decision, partnership announcement
-- Will these catalysts drive REAL volume or just hype?
-Document: [List specific catalysts with expected timing]
+PHASE 2: ASSESS SOURCE CREDIBILITY
+For the key events you identified, check the source:
+- OFFICIAL: Solana Foundation, Solana Status, major exchanges (Binance, Coinbase)
+- REPUTABLE: CoinDesk, CoinTelegraph, Decrypt
+- QUESTIONABLE: Unknown blogs, unverified sources
+If multiple reputable sources report the same event → High confidence
+If only 1 questionable source → Flag as "unverified"
 
-STEP 4: RISK FLAG DETECTION
-Check for RED FLAGS:
-- Regulatory crackdown (SEC lawsuit, exchange delisting threats)
-- Security breach (protocol hack, smart contract exploit)
-- Team/founder drama (exits, scandals, investigations)
-- Exchange issues (liquidity problems, withdrawal delays)
-Document: [List any critical risk flags]
 
-STEP 5: FINAL SENTIMENT ASSESSMENT
-- Given ALL news above, what's your overall sentiment? (0.0 = extremely bearish, 0.5 = neutral, 1.0 = extremely bullish)
-- How confident are you in this sentiment? (0.0 to 1.0)
-- Should traders be BULLISH, NEUTRAL, or BEARISH based on news alone?
+PHASE 3: CHECK FOR RISKS
+Look for RED FLAGS that could hurt SOL price:
+- Security breaches (hacks, exploits, network down)
+- Regulatory threats (SEC lawsuit, exchange delisting)
+- Team issues (founder exits, scandals)
+- Network problems (major outage, validator issues)
+If you find any critical risks, note them clearly.
+
+
+PHASE 4: DETERMINE OVERALL SENTIMENT
+Based on the events above:
+- Are positive events (partnerships, upgrades) outweighing negative ones?
+- Is the sentiment BULLISH (confident buying), NEUTRAL (wait and see), or BEARISH (caution/sell)?
+- How confident are you? (0.0 to 1.0)
+Consider:
+- If most news is hype/speculation → Lower confidence
+- If news is stale (>3 days old) → Lower confidence
+- If sources are questionable → Lower confidence
+- If critical risks present → Confidence <0.5
+
+
 </thinking>
 
+
+
 <answer>
-Based on the above 5-step analysis, provide your news sentiment assessment in this EXACT JSON format:
+Provide your trading recommendation in this EXACT JSON format:
 
 {{
   "overall_sentiment": 0.65,
-  "sentiment_trend": "improving",
-  "sentiment_breakdown": {{
-    "regulatory": 0.7,
-    "partnership": 0.8,
-    "upgrade": 0.6,
-    "security": 0.9,
-    "macro": 0.5
-  }},
-  "critical_events": [
-    "Solana DeFi TVL hits $5B (bullish - ecosystem growth)",
-    "SEC approves Bitcoin ETF (bullish macro - risk-on sentiment)",
-    "Minor Solana validator bug patched (neutral - no exploits)"
-  ],
-  "event_classification": {{
-    "actionable_catalysts": 2,
-    "noise_hype": 3,
-    "risk_flags": 0
-  }},
-  "recommendation": "BULLISH",
+  "sentiment_label": "NEUTRAL-BULLISH",
   "confidence": 0.70,
-  "hold_duration": "3-4 days (wait for ecosystem growth to reflect in price)",
-  "reasoning": "Strong ecosystem growth with DeFi TVL hitting $5B and new partnership announcements. Positive macro tailwind from Bitcoin ETF approval creating risk-on sentiment. No major regulatory or security concerns.",
-  "risk_flags": [],
-  "time_sensitive_events": [
-    "Solana Mobile Chapter 2 launch (May 15th) - expect hype spike"
-  ]
+
+  "all_recent_news": [
+    {{
+      "title": "Full article title",
+      "published_at": "2025-12-15T10:30:00",
+      "url": "https://coindesk.com/article-url",
+      "source": "CoinDesk"
+    }}
+  ],
+
+  "key_events": [
+    {{
+      "title": "Visa partners with Solana for stablecoin payments",
+      "published_at": 2025-12-02 03:36:29.000,
+      "url": "source_url",
+      "type": "PARTNERSHIP",
+      "source_credibility": "REPUTABLE",
+      "news_age_hours": 18,
+      "impact": "BULLISH",
+      "reasoning": "Major institutional validation, could drive real usage"
+    }},
+    {{
+      "title": "Solana network experienced 2-hour slowdown",
+      "published_at": 2025-12-02 03:36:29.000,
+      "url": "https://coindesk.com/visa-solana-partnership",
+      "type": "SECURITY",
+      "source_credibility": "OFFICIAL",
+      "news_age_hours": 48,
+      "impact": "BEARISH",
+      "reasoning": "Network reliability concerns, but short duration"
+    }},
+    {{
+      "title": "Random influencer predicts SOL to $500",
+      "published_at": 2025-12-02 03:36:29.000,
+      "url": "https://status.solana.com/incident-123",
+      "type": "HYPE",
+      "source_credibility": "QUESTIONABLE",
+      "news_age_hours": 12,
+      "impact": "NEUTRAL",
+      "reasoning": "Baseless speculation, ignore"
+    }}
+  ],
+
+  "event_summary": {{
+    "actionable_catalysts": 2,
+    "hype_noise": 3,
+    "critical_risks": 1
+  }},
+
+  "risk_flags": [
+    "Network slowdown reported (2 hours, now resolved)"
+  ],
+
+  "stance": "News is cautiously bullish. Visa partnership is a strong positive catalyst, but recent network issues create some concern. Overall, news SUPPORTS taking long positions but with reduced position size due to reliability questions.",
+
+  "suggested_timeframe": "3-5 days (watch for Visa announcement details)",
+
+  "recommendation_summary": "News is cautiously bullish with 68% sentiment. Visa partnership (confirmed, launching Q1 2025) provides strong institutional validation, but recent network slowdown raises reliability concerns. Overall, news SUPPORTS long positions but suggests reduced size. Watch for Visa launch date and any further network issues. Invalidation: Network outage or partnership delay flips sentiment bearish."
+
+  "what_to_watch": [
+    "Official Visa partnership launch date",
+    "Any further network stability issues",
+    "Follow-up news on partnership implementation"
+  ],
+
+  "invalidation": "If network experiences another outage OR Visa partnership gets delayed/cancelled, turn bearish immediately."
 }}
 </answer>
+
+Do NOT write ANYTHING before the <thinking> tag or after the </answer> tag. Do NOT forget write open and close tags properly  
+
 </analysis_framework>
 
-CRITICAL RULES:
-1. overall_sentiment must be 0.0 to 1.0 (0.0 = bearish, 0.5 = neutral, 1.0 = bullish)
-2. If you find ANY critical risk flags (security breach, regulatory action), set confidence < 0.5
-3. "Hype" events (influencer tweets, speculation) should NOT heavily influence sentiment
-4. If no news or all noise, return sentiment=0.5 (neutral) and confidence=0.3
-5. time_sensitive_events should only include events with SPECIFIC DATES in next 7 days
-6. Do not hallucinate events - only analyse provided articles
+<critical_rules>
+1. Only analyze the provided articles - do not make up events
+2. If news is mostly hype/speculation, say so clearly
+3. If you're uncertain about something, state "Unverified" rather than guessing
+4. Critical risks (security, regulatory) automatically reduce confidence below 0.5
+5. Old news (>72 hours) matters less - adjust impact accordingly
+6. Multiple reputable sources reporting same event = higher confidence
+7. Focus on Solana-specific news - ignore generic crypto market chatter
+8. Be skeptical of hype - only material catalysts matter
+9. recommendation_summary MUST be 2-4 sentences: (a) sentiment score + label, (b) key catalyst, (c) what news means for trading, (d) what to watch, (e) invalidation trigger
+</critical_rules>
+
 """
+
+
 
 
 class NewsAgent(BaseAgent):
@@ -131,7 +192,7 @@ class NewsAgent(BaseAgent):
 
     def execute(self, state: AgentState) -> AgentState:
         dq = DataQuery()
-        news_data = dq.get_news_data(days=7)
+        news_data = dq.get_news_data(days=10)
 
         articles_count = len(news_data)
 
@@ -139,7 +200,9 @@ class NewsAgent(BaseAgent):
         if articles_count > 0:
             articles_text = "\n\n".join([
                 f"[{i+1}] {article['title']}\n"
-                f"Published: {article['published_at']}\n"
+                f"Published_at: {article['published_at']}\n"
+                f"URL: {article['url']} \n"
+                f"Source: {article['source']} \n"
                 f"Summary: {article.get('description', 'No summary available')[:200]}..."
                 for i, article in enumerate(news_data)
             ])
@@ -170,12 +233,11 @@ class NewsAgent(BaseAgent):
                 "reasoning": "No recent news available for analysis (last 7 days)",
                 "risk_flags": [],
                 "time_sensitive_events": [],
-                "thinking": ""  # Fixed: Added missing field
+                "thinking": ""  
             }
 
             return state
 
-        # Build news summary
         news_summary = f"Total Articles: {articles_count}\n\n{articles_text}"
 
         full_prompt = SYSTEM_PROMPT + "\n\n" + NEWS_PROMPT.format(news_data=news_summary)
@@ -184,7 +246,7 @@ class NewsAgent(BaseAgent):
             full_prompt,
             model=self.model,
             temperature=self.temperature,
-            max_tokens=800
+            max_tokens=2500
         )
 
         try:
@@ -201,7 +263,7 @@ class NewsAgent(BaseAgent):
             news_data = json.loads(answer_json)
 
             if thinking:
-                news_data['thinking'] = thinking[:500]
+                news_data['thinking'] = thinking
 
             state['news'] = news_data
 
@@ -244,8 +306,5 @@ if __name__ == "__main__":
     test_state = AgentState()
     result = agent.execute(test_state)
     print("\n===== NEWS AGENT OUTPUT =====")
-    analysis = json.loads(result.get('news', '{}'))
-    print(f"Sentiment: {analysis.get('overall_sentiment')}")
-    print(f"Recommendation: {analysis.get('recommendation')}")
-    print(f"Reasoning: {analysis.get('reasoning')}")
-    print(f"Risk Flags: {analysis.get('risk_flags')}")
+    analysis = result.get('news', {})  
+    print("\n\n --- news_analyst: \n", analysis)

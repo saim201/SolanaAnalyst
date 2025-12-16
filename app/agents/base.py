@@ -3,32 +3,73 @@ from typing import TypedDict, Literal, Dict, List, Optional
 
 
 
+class ConfidenceBreakdown(TypedDict):
+    trend_strength: float
+    momentum_confirmation: float
+    volume_quality: float
+    risk_reward: float
+    final_adjusted: float
+
+class WatchList(TypedDict):
+    confirmation_signals: List[str]
+    invalidation_signals: List[str]
+    key_levels_24_48h: List[str]
+    time_based_triggers: List[str]
+
 class technicalOutput(TypedDict):
     recommendation: Literal['BUY', 'SELL', 'HOLD']
     confidence: float
-    confidence_breakdown: List[str]
     timeframe: str
     key_signals: List[str]
     entry_level: float
     stop_loss: float
     take_profit: float
     reasoning: str
+    confidence_breakdown: ConfidenceBreakdown
+    recommendation_summary: str
+    watch_list: WatchList
     thinking: str
+
+class NewsItem(TypedDict):
+    title: str
+    published_at: str
+    url: str
+    source: str
+
+class KeyEvent(TypedDict):
+    title: str
+    published_at: str
+    url: str
+    type: str
+    source_credibility: str
+    news_age_hours: int
+    impact: str
+    reasoning: str
+
+class EventSummary(TypedDict):
+    actionable_catalysts: int
+    hype_noise: int
+    critical_risks: int
 
 class NewsOutput(TypedDict):
     overall_sentiment: float
-    sentiment_trend: str
-    sentiment_breakdown: Dict[str, float]  # Fixed: Dict with category scores
-    recommendation: str
+    sentiment_label: str
     confidence: float
-    hold_duration: str
-    critical_events: List[str]
-    event_classification: Dict[str, int]  # Fixed: Dict with catalyst counts
+    all_recent_news: List[NewsItem]
+    key_events: List[KeyEvent]
+    event_summary: EventSummary
     risk_flags: List[str]
-    time_sensitive_events: List[str]
-    reasoning: str
+    stance: str
+    suggested_timeframe: str
+    recommendation_summary: str
+    what_to_watch: List[str]
+    invalidation: str
     thinking: str
 
+
+class BlindSpots(TypedDict):
+    bull_missing: List[str]
+    bear_missing: List[str]
 
 class ReflectionOutput(TypedDict):
     bull_case_summary: str
@@ -41,7 +82,7 @@ class ReflectionOutput(TypedDict):
     monitoring_trigger: str
     consensus_points: List[str]
     conflict_points: List[str]
-    blind_spots: List[str]
+    blind_spots: BlindSpots
     reasoning: str
 
 
@@ -80,7 +121,6 @@ class TraderOutput(TypedDict):
 
 
 class AgentState(TypedDict, total=False):
-
     technical: Optional[technicalOutput]
     news: Optional[NewsOutput]
     reflection: Optional[ReflectionOutput]
@@ -88,26 +128,6 @@ class AgentState(TypedDict, total=False):
     trader: Optional[TraderOutput]
     portfolio: Dict
 
-    recommendation: Optional[Literal['BUY', 'SELL', 'HOLD']]
-    confidence: Optional[float]
-    timeframe: Optional[str]
-    key_signals: Optional[List[str]]
-    entry_level: Optional[float]
-    stop_loss: Optional[float]
-    take_profit: Optional[float]
-    reasoning: Optional[str]
-    decision: Optional[Literal['buy', 'sell', 'hold']]
-    action: Optional[float]
-    risk_approved: Optional[bool]
-    position_size: Optional[float]
-    max_loss: Optional[float]
-    risk_reward: Optional[float]
-    risk_reasoning: Optional[str]
-    risk_warnings: Optional[List[str]]
-    indicators_analysis: Optional[str]
-    news_analysis: Optional[str]
-    reflection_analysis: Optional[str]
-    portfolio_analysis: Optional[str]
 
 
 class BaseAgent(ABC):

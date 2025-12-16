@@ -16,6 +16,8 @@ class TechnicalAnalyst(Base):
     take_profit = Column(Float, nullable=True)
     key_signals = Column(JSON, nullable=True)  
     reasoning = Column(Text, nullable=False)
+    recommendation_summary = Column(Text, nullable=True)
+    watch_list = Column(JSON, nullable=True)
     thinking = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -29,23 +31,24 @@ class NewsAnalyst(Base):
     __tablename__ = 'news_analyst'
 
     id = Column(Integer, primary_key=True, index=True)    
-    overall_sentiment = Column(Float, nullable=False)  # 0.0 to 1.0
-    sentiment_trend = Column(String(50), nullable=True)
-    sentiment_breakdown = Column(JSON, nullable=True)
-    recommendation = Column(String(20), nullable=False)  # BULLISH/NEUTRAL/BEARISH
+    overall_sentiment = Column(Float, nullable=False)  
+    sentiment_label = Column(String(50), nullable=True)
     confidence = Column(Float, nullable=False)
-    hold_duration = Column(String(50), nullable=True)
-    critical_events = Column(JSON, nullable=True)  # Array of events
-    event_classification = Column(JSON, nullable=True)
+    all_recent_news = Column(JSON, nullable=True)
+    key_events = Column(JSON, nullable=True)
+    event_summary = Column(JSON, nullable=True)
     risk_flags = Column(JSON, nullable=True)
-    time_sensitive_events = Column(JSON, nullable=True)
-    reasoning = Column(Text, nullable=False)
+    stance = Column(String(500), nullable=True)
+    suggested_timeframe = Column(String(50), nullable=True)
+    recommendation_summary = Column(String(500), nullable=True)
+    what_to_watch = Column(JSON, nullable=True)
+    invalidation = Column(String(500), nullable=True)
     thinking = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
         # Index('idx_news_timestamp', 'timestamp'),
-        Index('idx_news_recommendation', 'recommendation'),
+        Index('idx_news_stance', 'stance'),
     )
 
 
