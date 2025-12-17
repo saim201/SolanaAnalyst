@@ -12,6 +12,7 @@ def setup_middleware(app: FastAPI):
             "http://localhost:5173",
             "http://localhost:5174",
             "https://solscanapp.netlify.app",
+            "https://tradingmate.netlify.app",
         ],
         allow_credentials=True,
         allow_methods=["*"],
