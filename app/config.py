@@ -1,13 +1,14 @@
 
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
 
 
 class Settings(BaseSettings):
 
     # API Configuration
     API_HOST: str = "0.0.0.0"
-    API_PORT: int = 8000
+    API_PORT: int = int(os.getenv("PORT", "8000"))  # Render uses PORT env variable
     DEBUG: bool = False
 
     # Database

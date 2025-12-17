@@ -1,14 +1,10 @@
-"""
-API middleware configuration (CORS, error handling, etc).
-"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 
 def setup_middleware(app: FastAPI):
-    """Configure API middleware"""
     
-    # Configure CORS
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
