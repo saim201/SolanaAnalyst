@@ -3,7 +3,6 @@ import sys
 import uvicorn
 from app.api import create_app
 from app.config import settings
-from app.scheduler.jobs import start_scheduler
 from app.utils.logger import logger
 
 
@@ -14,18 +13,6 @@ def main():
     logger.info(f"Debug Mode: {settings.DEBUG}")
 
     app = create_app()
-
-    @app.on_event("startup")
-    def startup_event():
-        if settings.SCHEDULER_ENABLED:
-            logger.info("Initializing daily scheduler...")
-            try:
-                start_scheduler()
-                logger.info("✅ Scheduler initialized successfully")
-            except Exception as e:
-                logger.error(f"Failed to initialize scheduler: {str(e)}")
-        else:
-            logger.info("⚠️  Scheduler is disabled")
 
     uvicorn.run(
         app,

@@ -8,9 +8,7 @@ from app.agents.base import BaseAgent, AgentState
 from app.agents.technical import TechnicalAgent
 from app.agents.news import NewsAgent
 from app.agents.reflection import ReflectionAgent
-from app.agents.risk_management import RiskManagementAgent
 from app.agents.trader import TraderAgent
-from app.agents.portfolio import PortfolioAgent
 
 
 class TestBaseAgent:
@@ -157,80 +155,6 @@ class TestReflectionAgent:
         assert isinstance(result['reflection_analysis'], str)
 
 
-class TestRiskManagementAgent:
-    """Unit tests for RiskManagementAgent"""
-
-    def setup_method(self):
-        """Initialize agent for each test"""
-        self.agent = RiskManagementAgent()
-
-    def test_agent_initialization(self):
-        """Test that agent initializes correctly"""
-        assert hasattr(self.agent, 'model')
-        assert hasattr(self.agent, 'temperature')
-
-    def test_agent_inherits_from_base(self):
-        """Test that RiskManagementAgent inherits from BaseAgent"""
-        assert isinstance(self.agent, BaseAgent)
-
-    def test_agent_produces_risk_assessment(self):
-        """Test that agent produces risk assessment"""
-        initial_state: AgentState = {
-            'indicators_analysis': 'test',
-            'news_analysis': 'test',
-            'reflection_analysis': 'test',
-            'reasoning': '',
-            'decision': 'buy',
-            'confidence': 0.7,
-            'action': 0.8,
-        }
-
-        result = self.agent.execute(initial_state)
-
-        assert 'risk_approved' in result
-        assert 'position_size' in result
-        assert 'max_loss' in result
-        assert 'risk_reward' in result
-        assert 'risk_reasoning' in result
-        assert 'risk_warnings' in result
-
-    def test_risk_values_are_valid(self):
-        """Test that risk values are within valid ranges"""
-        initial_state: AgentState = {
-            'indicators_analysis': 'test',
-            'news_analysis': 'test',
-            'reflection_analysis': 'test',
-            'reasoning': '',
-            'decision': 'buy',
-            'confidence': 0.7,
-            'action': 0.8,
-        }
-
-        result = self.agent.execute(initial_state)
-
-        assert isinstance(result['risk_approved'], bool)
-        assert isinstance(result['position_size'], (int, float))
-        assert 0.0 <= result['position_size'] <= 1.0
-        assert result['max_loss'] >= 0.0
-        assert result['risk_reward'] >= 0.0
-
-    def test_risk_warnings_is_list(self):
-        """Test that risk_warnings is always a list"""
-        initial_state: AgentState = {
-            'indicators_analysis': 'test',
-            'news_analysis': 'test',
-            'reflection_analysis': 'test',
-            'reasoning': '',
-            'decision': 'hold',
-            'confidence': 0.5,
-            'action': 0.0,
-        }
-
-        result = self.agent.execute(initial_state)
-
-        assert isinstance(result['risk_warnings'], list)
-
-
 class TestTraderAgent:
     """Unit tests for TraderAgent"""
 
@@ -329,57 +253,6 @@ class TestTraderAgent:
         result = self.agent.execute(initial_state)
 
         assert isinstance(result['reasoning'], str)
-
-
-class TestPortfolioAgent:
-    """Unit tests for PortfolioAgent"""
-
-    def setup_method(self):
-        """Initialize agent for each test"""
-        self.agent = PortfolioAgent()
-
-    def test_agent_initialization(self):
-        """Test that agent initializes correctly"""
-        assert hasattr(self.agent, 'model')
-        assert hasattr(self.agent, 'temperature')
-
-    def test_agent_inherits_from_base(self):
-        """Test that PortfolioAgent inherits from BaseAgent"""
-        assert isinstance(self.agent, BaseAgent)
-
-    def test_agent_produces_portfolio_analysis(self):
-        """Test that agent produces portfolio analysis"""
-        initial_state: AgentState = {
-            'indicators_analysis': 'test',
-            'news_analysis': 'test',
-            'reflection_analysis': 'test',
-            'reasoning': 'Trade rationale',
-            'decision': 'buy',
-            'confidence': 0.7,
-            'action': 0.8,
-        }
-
-        result = self.agent.execute(initial_state)
-
-        assert 'portfolio_analysis' in result
-        assert isinstance(result['portfolio_analysis'], str)
-
-    def test_analysis_contains_meaningful_content(self):
-        """Test that portfolio analysis contains meaningful output"""
-        initial_state: AgentState = {
-            'indicators_analysis': 'test',
-            'news_analysis': 'test',
-            'reflection_analysis': 'test',
-            'reasoning': 'Trade rationale',
-            'decision': 'buy',
-            'confidence': 0.7,
-            'action': 0.8,
-        }
-
-        result = self.agent.execute(initial_state)
-
-        # Analysis should not be empty
-        assert len(result['portfolio_analysis']) > 0
 
 
 class TestAgentStateManagement:

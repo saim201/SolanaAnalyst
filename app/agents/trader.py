@@ -17,135 +17,256 @@ from app.agents.llm import llm
 from app.database.data_manager import DataManager
 
 
-SYSTEM_PROMPT = """You are the FINAL DECISION MAKER for SOLANA (SOL/USDT) swing trading with 20 years of experience aggregating expert analyses into executable trading decisions.
+SYSTEM_PROMPT = """You are the CHIEF TRADING OFFICER making final decisions on SOLANA (SOL/USDT) swing trades.
 
-Your role is NOT to analyse markets yourself - you synthesize the expert opinions from:
-1. Technical Analyst (chart patterns, indicators, momentum)
-2. News Analyst (sentiment, catalysts, risk events)
-3. Reflection Analyst (bull vs bear debate, blind spots)
+You have 20 years of experience synthesizing multi-analyst inputs into profitable trading decisions. Your specialty is crypto swing trading where both technical timing and news catalysts matter.
 
-Your expertise:
-- Detecting when all experts align (STRONG CONSENSUS → high confidence)
-- Identifying key disagreements and resolving conflicts
-- Weighing confidence levels appropriately
-- Recognizing when uncertainty is too high (→ HOLD)
-- Understanding that HOLD is a valid position when signals conflict
+Your role:
+- Synthesize 3 expert analyses: Technical, News, Reflection
+- Weight their inputs appropriately (Technical 50%, News 35%, Reflection 15%)
+- Make clear BUY/SELL/HOLD decisions with specific execution plans
+- Explain HOW you weighed each analyst's opinion
+- Identify when to override one analyst based on others
 
-Decision framework:
-- ALL 3 AGREE (same direction + high confidence) → BUY/SELL with HIGH confidence
-- 2 OUT OF 3 AGREE (strong signals) → BUY/SELL with MODERATE confidence
-- MIXED SIGNALS or LOW confidence (<0.5 average) → HOLD
-- ANY agent flags critical risk → Consider HOLD unless overwhelmingly bullish
+Your philosophy:
+- Technical analysis drives TIMING (when to enter/exit)
+- News analysis drives CONVICTION (catalysts that justify the trade)
+- Reflection analysis catches BLIND SPOTS (what everyone missed)
+- HOLD is not failure - it's discipline when edge is unclear
+- Position sizing reflects uncertainty (lower confidence = smaller size)
 
-Remember: HOLD is NOT failure - it's discipline. Only trade when edge is clear.
+You are decisive, risk-aware, and always explain your reasoning clearly.
 """
 
 
 TRADER_PROMPT = """
-TECHNICAL ANALYSIS:
-Recommendation: {tech_recommendation}
-Confidence: {tech_confidence:.0%}
-Timeframe: {tech_timeframe}
-Key Signals: {tech_signals}
+<technical_analysis>
+Technical Recommendation: {tech_recommendation}
+TechnicalConfidence: {tech_confidence:.2%}
+Technical Timeframe: {tech_timeframe}
+
+Key Signals:
+{tech_key_signals}
+
 Entry: ${tech_entry} | Stop: ${tech_stop} | Target: ${tech_target}
-Reasoning: {tech_reasoning}
 
-NEWS SENTIMENT:
-Recommendation: {news_recommendation}
-Sentiment Score: {news_sentiment:.0%}
-Sentiment Trend: {news_trend}
-Confidence: {news_confidence:.0%}
-Critical Events: {news_events}
-Risk Flags: {news_risk_flags}
-Reasoning: {news_reasoning}
+Technical Reasoning: {tech_reasoning}
 
-REFLECTION (Bull vs Bear Debate):
-Recommendation: {reflection_recommendation}
-Confidence: {reflection_confidence:.0%}
-Bull Strength: {bull_strength:.0%}
-Bear Strength: {bear_strength:.0%}
-Primary Risk: {primary_risk}
-Monitoring Trigger: {monitoring_trigger}
-Consensus Points: {consensus_points}
-Conflict Points: {conflict_points}
-Blind Spots: {blind_spots}
-Reasoning: {reflection_reasoning}
+Technical Summary: {tech_summary}
+
+Watch List:
+{tech_watchlist}
+</technical_analysis>
+
+<news_analysis>
+Sentiment: {news_sentiment:.2%} ({news_label})
+News Confidence: {news_confidence:.2%}
+
+Key Events:
+{news_key_events}
+
+Risk Flags:
+{news_risk_flags}
+
+News Reasoning: {news_reasoning}
+
+News Summary: {news_summary}
+
+What to Watch: {news_watch}
+
+Invalidation: {news_invalidation}
+</news_analysis>
+
+<reflection_analysis>
+Reflection Recommendation: {reflection_recommendation}
+Reflection Confidence: {reflection_confidence:.2%}
+
+Agreement Analysis:
+{reflection_agreement}
+
+Blind Spots Found:
+{reflection_blindspots}
+
+Risk Assessment:
+{reflection_risk}
+
+Monitoring Plan:
+{reflection_monitoring}
+
+Reflection Reasoning: {reflection_reasoning}
+</reflection_analysis>
+
+
+<decision_framework>
+YOUR RESPONSE MUST USE THIS EXACT FORMAT:
 
 <thinking>
-Now analyse the above three expert opinions using this EXACT framework:
 
-STEP 1: CONSENSUS DETECTION
-- Do all 3 agents recommend the same direction? (BUY/SELL/HOLD)
-- If YES → Strong consensus (confidence boost)
-- If 2/3 agree → Moderate consensus
-- If all disagree → No consensus (HOLD)
+PHASE 1: CONSENSUS CHECK
+Look at the three recommendations:
+- Technical says: {tech_recommendation} (confidence: {tech_confidence:.0%})
+- News says: {news_label} (confidence: {news_confidence:.0%})
+- Reflection says: {reflection_recommendation} (confidence: {reflection_confidence:.0%})
 
-Document: [What's the consensus level?]
+Do they agree or conflict?
+- ALL 3 ALIGN (same direction) = STRONG CONSENSUS
+- 2 OUT OF 3 ALIGN = MODERATE CONSENSUS  
+- ALL DISAGREE = NO CONSENSUS → likely HOLD
 
-STEP 2: CONFIDENCE WEIGHTING
-Calculate weighted average confidence:
-- Technical confidence: {tech_confidence:.0%} (weight: 40% - most important for swing trades)
-- News confidence: {news_confidence:.0%} (weight: 30% - catalysts matter)
-- Reflection confidence: {reflection_confidence:.0%} (weight: 30% - synthesis quality)
+Write 2-3 sentences describing the consensus situation and what it means.
+Example: "Technical recommends BUY with high confidence (0.72), News is BULLISH (0.65), but Reflection urges HOLD (0.57) due to volume concerns. This is MODERATE CONSENSUS - two analysts favor long, one is cautious. The disagreement centers on whether weak volume invalidates the bullish setup."
 
-Weighted average = (0.4 × tech) + (0.3 × news) + (0.3 × reflection)
 
-Document: [Calculated weighted confidence]
+PHASE 2: WEIGHTED CONFIDENCE CALCULATION
+Calculate the weighted average using crypto swing trading weights:
+- Technical weight: 50% (timing is critical for swing trades)
+- News weight: 35% (crypto overreacts to news/catalysts)
+- Reflection weight: 15% (synthesis + blind spot detection)
 
-STEP 3: RISK ASSESSMENT
-- Did News analyst flag any critical risk_flags?
-- Did Reflection identify serious blind_spots?
-- Is primary_risk manageable or a dealbreaker?
-- Is there a clear monitoring_trigger for exit?
+Formula: (0.50 × {tech_confidence}) + (0.35 × {news_confidence}) + (0.15 × {reflection_confidence})
 
-Document: [Major risks identified]
+Show your calculation step-by-step.
+Example: "(0.50 × 0.72) + (0.35 × 0.65) + (0.15 × 0.57) = 0.36 + 0.23 + 0.09 = 0.68"
 
-STEP 4: CONFLICT RESOLUTION
-If agents disagree:
-- Which agent has higher confidence?
-- Which agent has better reasoning quality?
-- Are disagreements minor (timing) or major (direction)?
-- Does Reflection agent resolve the conflict?
+Write 1-2 sentences explaining what this weighted confidence means.
 
-Document: [How to resolve conflicts]
 
-STEP 5: FINAL DECISION
-Given:
-- Consensus level: [STRONG/MODERATE/WEAK/NONE]
-- Weighted confidence: [calculated value]
-- Critical risks: [identified risks]
-- Conflict resolution: [if applicable]
+PHASE 3: ANALYSE EACH ANALYST'S CONTRIBUTION
+Go through each analyst and explain:
 
-What's your FINAL call? BUY, SELL, or HOLD?
+A) TECHNICAL ANALYST:
+- What's their strongest signal? (volume, momentum, support/resistance?)
+- Did they provide valid entry/stop/target levels?
+- What did they miss that other analysts caught?
+- How much do you trust their recommendation? (High/Medium/Low)
+
+B) NEWS ANALYST:
+- Are there real catalysts (partnerships, upgrades) or just hype?
+- Any critical risk flags (hacks, regulatory, network issues)?
+- How credible are the news sources?
+- Does news support or contradict the technical setup?
+
+C) REFLECTION ANALYST:
+- What blind spots did they identify?
+- Is their risk assessment valid?
+- Did they find something both Technical and News missed?
+- Should their caution override the bullish/bearish case?
+
+Write 2-3 sentences for EACH analyst explaining your assessment.
+
+
+PHASE 4: RESOLVE CONFLICTS & DECIDE DIRECTION
+If analysts disagree, resolve it:
+- Which analyst has stronger evidence?
+- Does Technical's chart setup override News concerns? Or vice versa?
+- Is Reflection's caution justified by real risks?
+- What's the path of least regret?
+
+Based on the weighted confidence and conflict resolution:
+- If weighted confidence ≥0.65 and 2+ analysts agree → BUY/SELL
+- If weighted confidence 0.50-0.65 and moderate consensus → BUY/SELL with caution
+- If weighted confidence <0.50 OR no consensus → HOLD
+
+Write 2-3 sentences explaining your final direction decision.
+Example: "Technical and News both point bullish with strong evidence (chart breakout + institutional catalysts). Reflection's volume concern is valid but not a dealbreaker - we can manage this with reduced position size. Weighted confidence of 0.68 justifies a BUY decision with 50% position sizing."
+
+
+PHASE 5: BUILD EXECUTION PLAN
+Now that you've decided on direction, create the execution plan:
+
+ENTRY TIMING:
+- Should we enter NOW or WAIT for a better setup?
+- If wait, what are the conditions? (price level, volume confirmation, time window)
+- Be specific: "Enter within 2-4h if price dips to $184" or "Wait for volume >1.5x"
+
+POSITION SIZE:
+- Based on confidence: >0.75 = 70-100%, 0.65-0.75 = 50-70%, 0.50-0.65 = 30-50%, <0.50 = 0% (HOLD)
+- Adjust for risks: if Reflection flags high risk, reduce by 20%
+
+PRICE LEVELS:
+- Use Technical's entry/stop/target if they're valid
+- If Technical has no levels but recommends BUY/SELL → HOLD instead (can't trade without levels)
+- Validate: Is stop within 5% of entry? Is R/R ratio >1.5:1?
+
+TIMEFRAME:
+- Review Technical's suggested timeframe ({tech_timeframe})
+- Adjust based on conviction: High confidence (>0.75) = hold full duration, Medium confidence (0.50-0.75) = shorter hold or take profits early
+- Consider news catalysts: If time-sensitive event coming (partnership launch, upgrade), update the timeframe accordingly
+- Specify exact days: "3-5 days" or "Hold until $198 target OR 5 days maximum, whichever comes first"
+
+Write 3-4 sentences detailing the exact execution plan.
+
 </thinking>
 
-<answer>
-Based on the 5-step analysis above, provide your FINAL trading decision in this EXACT JSON format:
 
+<answer>
 {{
   "decision": "BUY|SELL|HOLD",
-  "confidence": 0.72,
-  "consensus_level": "STRONG|MODERATE|WEAK|NONE",
-  "agreeing_agents": ["technical", "news"],
-  "disagreeing_agents": ["reflection"],
-  "primary_concern": "Brief description of main risk or opportunity",
-  "reasoning": "2-3 sentence synthesis explaining WHY this decision makes sense given all inputs"
+  "confidence": 0.68,
+  "reasoning": "Technical breakout + institutional catalysts (CME, Ondo Finance) create compelling bullish case with 0.68 weighted confidence. Weak volume concern from Reflection is managed via 50% position sizing. Entry at $184 offers 1.8:1 R/R with clear invalidation at $176.",
+  
+  "agent_synthesis": {{
+    "technical_weight": 0.50,
+    "news_weight": 0.35,
+    "reflection_weight": 0.15,
+    "weighted_confidence": 0.68,
+    "agreement_summary": "Technical (BUY, 0.72) and News (BULLISH, 0.65) strongly align on bullish direction due to chart breakout above EMA50 and major institutional partnerships (CME futures, Ondo tokenization). Reflection (HOLD, 0.57) provides valuable caution, flagging weak volume (0.82x) and network reliability risks that Technical/News underweighted. The core disagreement is risk tolerance: Tech/News see opportunity, Reflection sees insufficient conviction. Weighted analysis (0.68) favors the bullish case but incorporates Reflection's risk management via reduced position size.",
+    "technical_contribution": "Provides clear entry/stop/target levels with strong chart setup (EMA50 breakout, MACD positive). Most reliable for TIMING the trade. Trust level: HIGH - signals are clear and actionable.",
+    "news_contribution": "Identifies genuine institutional catalysts (not hype) - CME and Ondo partnerships are material positives. Balances with liquidity concerns. Trust level: MEDIUM-HIGH - sources credible but slightly dated.",
+    "reflection_contribution": "Critical blind spot detection: caught weak volume issue that Technical mentioned but didn't emphasize enough. Risk assessment is valid and prevents overconfidence. Trust level: MEDIUM - sometimes overly cautious but provides necessary balance."
+  }},
+  
+  "execution_plan": {{
+    "entry_timing": "Enter within next 2-4 hours if price dips to $182-184 (EMA20 support zone). If price stays above $186, wait for either: (1) volume surge above 1.5x to confirm rally, OR (2) pullback to support. Do NOT chase at current price - patience is key.",
+    "position_size": "50%",
+    "entry_price_target": 184.00,
+    "stop_loss": 176.00,
+    "take_profit": 198.00,
+    "timeframe": "3-5 days",
+    "risk_reward_ratio": "1.75:1"
+  }},
+  
+  "risk_management": {{
+    "max_loss_per_trade": "2%",
+    "primary_risk": "Weak volume (0.82x average) means rally lacks institutional conviction and could reverse sharply on any negative catalyst",
+    "secondary_risks": [
+      "Network reliability concerns from recent 2-hour outage",
+      "Price 8% above EMA50 - technically extended",
+      "Declining TVL suggests ecosystem weakness"
+    ],
+    "exit_conditions": [
+      "IMMEDIATE EXIT: Break and close below $176 (invalidates setup)",
+      "24H EXIT: Volume stays <1.0x for 48 hours straight (no conviction)",
+      "PROFIT TAKE: Hit $198 target OR 48 hours passed with no momentum"
+    ],
+    "monitoring_checklist": [
+      "Volume MUST surge above 1.5x within 48h to validate bullish thesis",
+      "Price MUST hold $184 (EMA20) on any pullback",
+      "Watch for Visa/Ondo partnership implementation news",
+      "Monitor Solana network status for any new outages",
+      "Track buy pressure - needs to stay above 50%"
+    ]
+  }}
 }}
 </answer>
 
-CRITICAL RULES:
-1. If consensus is NONE (all disagree) → MUST return HOLD
-2. If weighted confidence < 0.50 → MUST return HOLD
-3. If News has risk_flags=["critical_security_breach"] → MUST return HOLD
-4. If NO ENTRY/STOP/TARGET from Technical and recommendation is BUY/SELL → MUST return HOLD
-5. confidence must be 0.0 to 1.0
-6. decision must be exactly "BUY", "SELL", or "HOLD"
-7. Do NOT invent new information - only synthesize what's provided
+</decision_framework>
+
+<critical_rules>
+1. If NO CONSENSUS (all 3 disagree) → MUST return HOLD
+2. If weighted_confidence <0.50 → MUST return HOLD
+3. If Technical has NO entry/stop/target but recommends BUY/SELL → MUST return HOLD
+4. If News has critical risk_flags like "exchange delisting" or "SEC lawsuit" → MUST return HOLD
+5. Position size MUST match confidence: <0.50=0%, 0.50-0.65=30-50%, 0.65-0.75=50-70%, >0.75=70-100%
+6. agent_synthesis.agreement_summary MUST be 4-6 sentences explaining how all 3 analysts align or conflict
+7. Always show the weighted confidence calculation in thinking
+8. Be specific with entry_timing - include conditions and price levels
+9. monitoring_checklist is MANDATORY - traders need to know what to watch
+10. If decision is HOLD, set entry_price_target, stop_loss, take_profit to null
+</critical_rules>
 """
 
-
 class TraderAgent(BaseAgent):
-
     def __init__(self):
         super().__init__(
             model="claude-3-5-haiku-20241022",
@@ -153,73 +274,77 @@ class TraderAgent(BaseAgent):
         )
 
     def execute(self, state: AgentState) -> AgentState:
-
-        # === EXTRACT TECHNICAL ANALYSIS ===
         technical = state.get('technical', {})
         tech_recommendation = technical.get('recommendation', 'HOLD')
         tech_confidence = float(technical.get('confidence', 0.5))
         tech_timeframe = technical.get('timeframe', 'N/A')
-        tech_signals = ', '.join(technical.get('key_signals', [])[:3])
-        tech_entry = technical.get('entry_level') or 0.0
-        tech_stop = technical.get('stop_loss') or 0.0
-        tech_target = technical.get('take_profit') or 0.0
+        tech_key_signals = technical.get('key_signals', [])
+        tech_entry = technical.get('entry_level')
+        tech_stop = technical.get('stop_loss')
+        tech_target = technical.get('take_profit')
         tech_reasoning = technical.get('reasoning', 'No technical analysis available')
+        tech_summary = technical.get('recommendation_summary', 'No summary provided')
+        tech_watchlist = technical.get('watch_list', {})
+        tech_key_signals_formatted = '\n'.join([f"  - {signal}" for signal in tech_key_signals[:5]]) if tech_key_signals else "No signals provided"
+        tech_watchlist_formatted = json.dumps(tech_watchlist, indent=2) if tech_watchlist else "No watch list provided"
 
-        # === EXTRACT NEWS ANALYSIS ===
         news = state.get('news', {})
-        news_recommendation = news.get('recommendation', 'NEUTRAL')
         news_sentiment = float(news.get('overall_sentiment', 0.5))
-        news_trend = news.get('sentiment_trend', 'stable')
+        news_label = news.get('sentiment_label', 'NEUTRAL')
         news_confidence = float(news.get('confidence', 0.5))
-        news_events = ', '.join(news.get('critical_events', [])[:2]) or 'None'
-        news_risk_flags = ', '.join(news.get('risk_flags', [])) or 'None'
+        news_key_events = news.get('key_events', [])
+        news_risk_flags = news.get('risk_flags', [])
         news_reasoning = news.get('reasoning', 'No news analysis available')
+        news_summary = news.get('recommendation_summary', 'No summary provided')
+        news_watch = news.get('what_to_watch', [])
+        news_invalidation = news.get('invalidation', 'Not specified')
+        news_key_events_formatted = '\n'.join([
+            f"  - {event.get('title', 'Unknown')} ({event.get('type', 'Unknown')}) - {event.get('impact', 'Unknown')}: {event.get('reasoning', 'No reasoning')}"
+            for event in news_key_events[:5] # top 5 only
+        ]) if news_key_events else "No key events"
+        news_risk_flags_formatted = '\n'.join([f"  - {flag}" for flag in news_risk_flags]) if news_risk_flags else "No risk flags"
+        news_watch_formatted = '\n'.join([f"  - {item}" for item in news_watch]) if news_watch else "Nothing specified"
 
-        # === EXTRACT REFLECTION ANALYSIS ===
         reflection = state.get('reflection', {})
-        reflection_recommendation = reflection.get('recommendation', 'HOLD')
+        reflection_recommendation = reflection.get('final_recommendation', 'HOLD')
         reflection_confidence = float(reflection.get('confidence', 0.5))
-        bull_strength = float(reflection.get('bull_strength', 0.5))
-        bear_strength = float(reflection.get('bear_strength', 0.5))
-        primary_risk = reflection.get('primary_risk', 'Unknown')
-        monitoring_trigger = reflection.get('monitoring_trigger', 'None identified')
-        consensus_points = ', '.join(reflection.get('consensus_points', [])) or 'None'
-        conflict_points = ', '.join(reflection.get('conflict_points', [])) or 'None'
-
-        blind_spots_raw = reflection.get('blind_spots', [])
-        if isinstance(blind_spots_raw, list):
-            blind_spots = ', '.join(blind_spots_raw)
-        else:
-            blind_spots = str(blind_spots_raw)[:100]
-
-        reflection_reasoning = reflection.get('reasoning', 'No reflection analysis available')
+        agreement_analysis = reflection.get('agreement_analysis', {})
+        reflection_agreement = json.dumps(agreement_analysis, indent=2) if agreement_analysis else "No agreement analysis"
+        blind_spots = reflection.get('blind_spots', {})
+        reflection_blindspots = json.dumps(blind_spots, indent=2) if blind_spots else "No blind spots identified"        
+        risk_assessment = reflection.get('risk_assessment', {})
+        reflection_risk = json.dumps(risk_assessment, indent=2) if risk_assessment else "No risk assessment"
+        monitoring = reflection.get('monitoring', {})
+        reflection_monitoring = json.dumps(monitoring, indent=2) if monitoring else "No monitoring plan"
+        reflection_reasoning = reflection.get('final_reasoning', 'No reflection analysis available')
 
 
         full_prompt = SYSTEM_PROMPT + "\n\n" + TRADER_PROMPT.format(
             tech_recommendation=tech_recommendation,
             tech_confidence=tech_confidence,
             tech_timeframe=tech_timeframe,
-            tech_signals=tech_signals or 'None',
-            tech_entry=tech_entry,
-            tech_stop=tech_stop,
-            tech_target=tech_target,
+            tech_key_signals=tech_key_signals_formatted,
+            tech_entry=tech_entry if tech_entry else "N/A",
+            tech_stop=tech_stop if tech_stop else "N/A",
+            tech_target=tech_target if tech_target else "N/A",
             tech_reasoning=tech_reasoning,
-            news_recommendation=news_recommendation,
+            tech_summary=tech_summary,
+            tech_watchlist=tech_watchlist_formatted,
             news_sentiment=news_sentiment,
-            news_trend=news_trend,
+            news_label=news_label,
             news_confidence=news_confidence,
-            news_events=news_events,
-            news_risk_flags=news_risk_flags,
+            news_key_events=news_key_events_formatted,
+            news_risk_flags=news_risk_flags_formatted,
             news_reasoning=news_reasoning,
+            news_summary=news_summary,
+            news_watch=news_watch_formatted,
+            news_invalidation=news_invalidation,
             reflection_recommendation=reflection_recommendation,
             reflection_confidence=reflection_confidence,
-            bull_strength=bull_strength,
-            bear_strength=bear_strength,
-            primary_risk=primary_risk,
-            monitoring_trigger=monitoring_trigger,
-            consensus_points=consensus_points,
-            conflict_points=conflict_points,
-            blind_spots=blind_spots,
+            reflection_agreement=reflection_agreement,
+            reflection_blindspots=reflection_blindspots,
+            reflection_risk=reflection_risk,
+            reflection_monitoring=reflection_monitoring,
             reflection_reasoning=reflection_reasoning
         )
 
@@ -227,7 +352,7 @@ class TraderAgent(BaseAgent):
             full_prompt,
             model=self.model,
             temperature=self.temperature,
-            max_tokens=600
+            max_tokens=3000
         )
 
         try:
@@ -238,173 +363,208 @@ class TraderAgent(BaseAgent):
             if answer_match:
                 answer_json = answer_match.group(1).strip()
             else:
-                answer_json = response
+                json_match = re.search(r'\{.*\}', response, re.DOTALL)
+                if json_match:
+                    answer_json = json_match.group(0)
+                else:
+                    raise ValueError("No JSON found in response")
 
-            answer_json = re.sub(r'```json\s*|\s*```', '', answer_json).strip()
+            answer_json = answer_json.strip()
+            answer_json = re.sub(r'^```json\s*', '', answer_json)
+            answer_json = re.sub(r'\s*```$', '', answer_json)
+            answer_json = answer_json.replace('"', '"').replace('"', '"')
+            answer_json = answer_json.replace(''', "'").replace(''', "'")
+            
+            first_brace = answer_json.find('{')
+            last_brace = answer_json.rfind('}')
+            if first_brace != -1 and last_brace != -1:
+                answer_json = answer_json[first_brace:last_brace+1]
 
-            json_match = re.search(r'\{.*\}', answer_json, re.DOTALL)
-            if json_match:
-                answer_json = json_match.group(0)
+            trader_data = json.loads(answer_json)
+            decision = trader_data.get('decision', 'HOLD').upper()
+            if decision not in ['BUY', 'SELL', 'HOLD']:
+                print(f"⚠️  Invalid decision '{decision}', defaulting to HOLD")
+                decision = 'HOLD'
 
-            decision_data = json.loads(answer_json)
+            confidence = float(trader_data.get('confidence', 0.5))
+            confidence = max(0.0, min(1.0, confidence))  # Clamp between 0 and 1
 
-            # === VALIDATE AND EXTRACT FIELDS ===
-            final_decision = decision_data.get('decision', 'HOLD').upper()
-            final_confidence = float(decision_data.get('confidence', 0.5))
-            consensus_level = decision_data.get('consensus_level', 'UNKNOWN')
-            agreeing_agents = decision_data.get('agreeing_agents', [])
-            disagreeing_agents = decision_data.get('disagreeing_agents', [])
-            primary_concern = decision_data.get('primary_concern', primary_risk)
-            reasoning = decision_data.get('reasoning', '')
+            trader_data['thinking'] = thinking
+            trader_data['decision'] = decision
+            trader_data['confidence'] = confidence
 
-            if final_decision not in ['BUY', 'SELL', 'HOLD']:
-                print(f"⚠️  Invalid decision '{final_decision}', defaulting to HOLD")
-                final_decision = 'HOLD'
+            state['trader'] = trader_data
 
-            # Clamp confidence
-            final_confidence = max(0.0, min(1.0, final_confidence))
+            dm = DataManager()
+            dm.save_trader_decision(
+                timestamp=datetime.now(),
+                data=trader_data
+            )
+            dm.close()
 
-            # === SAVE TO STATE ===
-            state['trader'] = {
-                'decision': final_decision,
-                'confidence': final_confidence,
-                'consensus_level': consensus_level,
-                'agreeing_agents': agreeing_agents,
-                'disagreeing_agents': disagreeing_agents,
-                'primary_concern': primary_concern,
-                'reasoning': reasoning,
-                'thinking': thinking[:500] if thinking else ''
-            }
-
-            # === SAVE TO DATABASE ===
-            try:
-                dm = DataManager()
-                dm.save_trader_decision(
-                    timestamp=datetime.now(),
-                    data=state['trader']
-                )
-                dm.close()
-            except Exception as e:
-                print(f"⚠️  Failed to save trader decision to DB: {e}")
+            print(f" Trader agent completed: {decision} (confidence: {confidence:.0%})")
 
         except (json.JSONDecodeError, ValueError) as e:
-            print(f"⚠️  Trader agent parsing error: {e}")
-            print(f"Response preview: {response[:300]}")
+            print(f"  Trader agent parsing error: {e}")
+            print(f"Response preview: {response[:500]}")
 
             # === FALLBACK DECISION ===
-            fallback_decision = reflection_recommendation
-            fallback_confidence = reflection_confidence * 0.85  # Reduce confidence due to error
-            fallback_reasoning = f"Synthesis failed, defaulting to Reflection agent: {reflection_reasoning[:150]}"
+            fallback_decision = reflection_recommendation if reflection_recommendation in ['BUY', 'SELL', 'HOLD'] else 'HOLD'
+            fallback_confidence = reflection_confidence * 0.8  # Reduce confidence due to error
 
             state['trader'] = {
                 'decision': fallback_decision,
                 'confidence': fallback_confidence,
-                'consensus_level': 'UNKNOWN',
-                'agreeing_agents': [],
-                'disagreeing_agents': [],
-                'primary_concern': 'Synthesis error - low confidence',
-                'reasoning': fallback_reasoning,
-                'thinking': ''
+                'reasoning': f"Trader synthesis failed. Defaulting to Reflection recommendation: {reflection_reasoning[:200]}",
+                'agent_synthesis': {
+                    'technical_weight': 0.50,
+                    'news_weight': 0.35,
+                    'reflection_weight': 0.15,
+                    'weighted_confidence': fallback_confidence,
+                    'agreement_summary': f"Parsing error occurred. Using Reflection as fallback.",
+                    'technical_contribution': 'Unable to assess due to parsing error',
+                    'news_contribution': 'Unable to assess due to parsing error',
+                    'reflection_contribution': 'Used as fallback decision'
+                },
+                'execution_plan': {
+                    'entry_timing': 'Wait for valid analysis',
+                    'position_size': '0%',
+                    'entry_price_target': None,
+                    'stop_loss': None,
+                    'take_profit': None,
+                    'timeframe': 'N/A',
+                    'risk_reward_ratio': 'N/A'
+                },
+                'risk_management': {
+                    'max_loss_per_trade': '2%',
+                    'primary_risk': f'Analysis error: {str(e)[:100]}',
+                    'secondary_risks': ['Parsing failed - high uncertainty'],
+                    'exit_conditions': ['Re-run analysis'],
+                    'monitoring_checklist': ['Generate new analysis']
+                },
+                'thinking': f'Error occurred: {str(e)}'
             }
 
-            print(f"\n⚠️  FALLBACK DECISION: {fallback_decision} ({fallback_confidence:.0%})")
+            print(f"  FALLBACK DECISION: {fallback_decision} ({fallback_confidence:.0%})")
 
-        print("="*70 + "\n")
         return state
 
-
+  
 if __name__ == "__main__":
 
 
     agent = TraderAgent()
-    # === TEST CASE: STRONG BULLISH CONSENSUS ===
     test_state = AgentState()
 
     test_state['technical'] = {
         'recommendation': 'BUY',
-        'confidence': 0.78,
-        'confidence_breakdown': {
-            'trend_strength': 0.85,
-            'momentum_confirmation': 0.75,
-            'volume_quality': 0.80,
-            'risk_reward': 0.90,
-            'final_adjusted': 0.78
-        },
-        'timeframe': '1-5 days',
+        'confidence': 0.72,
+        'timeframe': '3-7 days',
         'key_signals': [
-            'Price broke above EMA20 with strong volume',
-            'MACD histogram expanding (bullish momentum)',
-            'RSI 58 (healthy, not overbought)'
+            "Strong bullish momentum with RSI at 68 (not overbought)",
+            "Price breaking above EMA50 resistance at $145.20",
+            "Volume surge of 1.8x average (institutional interest)",
+            "MACD crossover indicating upward trend continuation",
+            "Support level holding strong at $142.50"
         ],
-        'entry_level': 187.50,
-        'stop_loss': 181.00,
-        'take_profit': 199.00,
-        'reasoning': 'Clean breakout above EMA20 with volume confirmation. MACD showing bullish divergence. Risk/reward 1.77:1 with clear support at $181.',
-        'thinking': 'Analyzed 14 days of price action. Volume spike confirms institutional interest.'
+        'entry_level': 145.50,
+        'stop_loss': 142.00,
+        'take_profit': 155.00,
+        'reasoning': "Technical indicators suggest a strong bullish setup. The price has successfully broken above the key EMA50 resistance level with significant volume confirmation. RSI is in a healthy range (68), indicating room for further upside. The MACD crossover and strong support at $142.50 provide additional confidence. Risk/reward ratio is favorable at approximately 1:3.2.",
+        'confidence_breakdown': {
+            'trend_strength': 0.75,
+            'momentum_confirmation': 0.80,
+            'volume_quality': 0.85,
+            'risk_reward': 0.60,
+            'final_adjusted': 0.72
+        },
+        'recommendation_summary': 'HOLD CASH. The current Solana market is untradeable due to critically low volume (61,354 trades vs 3.4M average) and complete lack of directional momentum. Buy pressure has collapsed to 35.5%, signaling zero conviction. Do NOT attempt to trade until: (1) Daily volume returns to >3M trades, (2) Buy pressure recovers above 50%, (3) Price shows clear directional movement above or below key support/resistance levels.',
+        'watch_list': {
+            'confirmation_signals': ["Daily volume returns to >3M trades", "Buy pressure recovers above 50%", "Price breaks and holds above $136.48 or below $128.87 on strong volume"],
+            'invalidation_signals': ["Continued low volume (<1M daily trades)", "Buy pressure remains below 40%", "Price continues to chop in narrow range"],
+            'key_levels_24_48h': ["$136.48 - Potential resistance", "$128.87 - Potential support", "$125.92 - Lower support level"],
+            'time_based_triggers': ["24 hours: Monitor volume and buy pressure", "48 hours: If no clear directional move, remain in cash"]
+        },
+        'thinking': 'Analyzed price action and indicators. Volume confirms institutional interest.'
     }
 
     test_state['news'] = {
-        'overall_sentiment': 0.72,
-        'sentiment_trend': 'improving',
-        'sentiment_breakdown': {
-            'regulatory': 0.7,
-            'partnership': 0.85,
-            'upgrade': 0.6,
-            'security': 0.9,
-            'macro': 0.55
-        },
-        'critical_events': [
-            'Solana DeFi TVL surpasses $6B (bullish - ecosystem growth)',
-            'Major CEX listing announcement incoming (bullish - liquidity boost)'
+        'overall_sentiment': 0.62,
+        'sentiment_label': 'NEUTRAL-BULLISH',
+        'confidence': 0.65,
+        'all_recent_news': [
+            {'title': 'Ondo Finance Tokenized Stocks on Solana', 'published_at': '2025-12-15T15:49:41', 'url': 'https://www.coindesk.com/business/2025/12/15/ondo-finance-to-offer-tokenized-u-s-stocks-etfs-on-solana-early-next-year', 'source': 'CoinDesk'},
+            {'title': 'CME Group Solana Futures', 'published_at': '2025-12-15T16:07:00', 'url': 'https://www.coindesk.com/markets/2025/12/15/cme-group-expands-crypto-derivatives-with-spot-quoted-xrp-and-solana-futures', 'source': 'CoinDesk'}
         ],
-        'event_classification': {
+        'key_events': [
+            {'title': 'Ondo Finance Tokenized Stocks on Solana', 'published_at': '2025-12-15T15:49:41', 'url': 'https://www.coindesk.com/business/2025/12/15/ondo-finance-to-offer-tokenized-u-s-stocks-etfs-on-solana-early-next-year', 'type': 'PARTNERSHIP', 'source_credibility': 'REPUTABLE', 'news_age_hours': 12, 'impact': 'BULLISH', 'reasoning': "Expanding Solana's real-world asset tokenization capabilities"},
+            {'title': 'CME Group Solana Futures', 'published_at': '2025-12-15T16:07:00', 'url': 'https://www.coindesk.com/markets/2025/12/15/cme-group-expands-crypto-derivatives-with-spot-quoted-xrp-and-solana-futures', 'type': 'PARTNERSHIP', 'source_credibility': 'REPUTABLE', 'news_age_hours': 12, 'impact': 'BULLISH', 'reasoning': 'Institutional derivatives product increases SOL legitimacy'},
+            {'title': 'Solana Liquidity Challenges', 'published_at': '2025-12-10T05:03:08', 'url': 'https://decrypt.co/351743/solana-liquidity-plummets-bear-level-500m-liquidation-overhang', 'type': 'ECOSYSTEM', 'source_credibility': 'REPUTABLE', 'news_age_hours': 120, 'impact': 'BEARISH', 'reasoning': 'Declining Total Value Locked and memecoin demand weakness'}
+        ],
+        'event_summary': {
             'actionable_catalysts': 2,
-            'noise_hype': 1,
-            'risk_flags': 0
+            'hype_noise': 1,
+            'critical_risks': 1
         },
-        'recommendation': 'BULLISH',
-        'confidence': 0.74,
-        'hold_duration': '3-5 days',
-        'reasoning': 'Strong ecosystem fundamentals with DeFi TVL growth and upcoming CEX listing. No major regulatory headwinds. Positive macro environment.',
-        'risk_flags': [],
-        'time_sensitive_events': ['CEX listing expected within 48h'],
-        'thinking': 'Analyzed 15 news articles. Sentiment across all categories is positive.'
+        'risk_flags': ['Declining Total Value Locked', 'Liquidity challenges in ecosystem'],
+        'stance': "News is cautiously bullish. Visa partnership is a strong positive catalyst, but recent network issues create some concern. Overall, news SUPPORTS taking long positions but with reduced position size due to reliability questions.",
+        'suggested_timeframe': '3-5 days',
+        'recommendation_summary': "News presents a cautiously bullish 0.62 sentiment. CME futures and Ondo Finance partnerships provide strong institutional validation, offsetting recent liquidity concerns. Traders should maintain positions but with reduced size, watching for network stability and further institutional adoption signals.",
+        'what_to_watch': ['Ondo Finance tokenization launch details', 'CME Solana futures trading volume', 'Total Value Locked trend'],
+        'invalidation': "Sustained decline in TVL below current levels OR failure to generate meaningful institutional product adoption.",
+        'thinking': 'Analyzed news events and sentiment. Institutional catalysts are positive.'
     }
 
     test_state['reflection'] = {
-        'bull_case_summary': 'Technical breakout + strong fundamentals + positive catalysts align for upside move',
-        'bear_case_summary': 'Potential short-term overbought after 8% rally. Resistance at $195 could cap gains',
-        'bull_strength': 0.76,
-        'bear_strength': 0.52,
-        'recommendation': 'BUY',
-        'confidence': 0.70,
-        'primary_risk': 'Resistance at $195 could trigger profit-taking',
-        'monitoring_trigger': 'Watch for volume decline below 1.0x average or breakdown below $181',
-        'consensus_points': [
-            'Technical structure is bullish',
-            'Volume confirms the breakout',
-            'Fundamentals support higher prices'
-        ],
-        'conflict_points': [
-            'Bears warn of short-term overbought conditions',
-            'Bulls see breakout, bears see resistance ahead'
-        ],
-        'blind_spots': [
-            'Bull missing: Potential macro headwinds from Fed policy',
-            'Bear missing: Strong institutional accumulation pattern'
-        ],
-        'reasoning': 'Bull case is clearly stronger. All three signals (technical, news, fundamentals) align for 3-5 day swing trade. Risk is manageable with stop at $181.'
+        'recommendation': 'HOLD',
+        'confidence': 0.57,
+        'agreement_analysis': {
+            'alignment_status': 'PARTIAL',
+            'alignment_score': 0.75,
+            'explanation': "Technical and news both show bullish potential, but with significant reservations."
+        },
+        'blind_spots': {
+            'technical_missed': [
+                "Network reliability risks",
+                "Potential security vulnerabilities"
+            ],
+            'news_missed': [
+                "Strong momentum signals",
+                "Institutional volume interest"
+            ]
+        },
+        'risk_assessment': {
+            'primary_risk': "Network infrastructure concerns could rapidly undermine bullish momentum",
+            'risk_level': 'MEDIUM',
+            'risk_score': 0.55
+        },
+        'monitoring': {
+            'watch_next_24h': [
+                "Visa partnership implementation details",
+                "Network performance metrics",
+                "Volume confirmation above 1.5x average"
+            ],
+            'invalidation_trigger': "Sustained network performance issues or partnership delay"
+        },
+        'confidence_calculation': {
+            'starting_confidence': 0.65,
+            'alignment_bonus': 0.10,
+            'risk_penalty': -0.07,
+            'confidence': 0.68,
+            'reasoning': "While both technical and news analyses show bullish potential, network reliability concerns create significant uncertainty."
+        },
+        'reasoning': "Technical momentum and institutional catalysts (CME, Ondo Finance) create a compelling bullish setup. However, ecosystem liquidity challenges require caution. Key success factors: volume sustains, TVL stabilizes, institutional products gain adoption.",
+        'thinking': 'Synthesized technical and news analyses. Found alignment but with caution.'
     }
 
     result = agent.execute(test_state)
 
     if result.get('trader'):
         trader = result['trader']
-        print(f"\n✅ TEST RESULT:")
-        print(f"   Decision: {trader['decision']}")
-        print(f"   Confidence: {trader['confidence']:.0%}")
-        print(f"   Consensus: {trader['consensus_level']}")
-        print(f"   Reasoning: {trader['reasoning']}")
+        print("\n" + "="*70)
+        print("TRADER AGENT OUTPUT")
+        print("="*70)
+        print(trader)
     else:
-        print(f"\n❌ TEST FAILED: No trader output")
+        print("\nTEST FAILED: No trader output")
 

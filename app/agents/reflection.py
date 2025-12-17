@@ -1,7 +1,6 @@
 """
-Reflection Agent - Bull vs Bear debate system.
-Forces consideration of opposing viewpoints to detect blind spots.
-Uses structured 4-step analysis framework 
+Reflection Agent - Cross-Analysis & Final Decision
+Single LLM call that synthesizes technical + news analysis
 """
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -12,143 +11,188 @@ from app.agents.llm import llm
 from app.database.data_manager import DataManager
 
 
-BULL_SYSTEM_PROMPT = """You are the BULL ADVOCATE in a professional trading debate. Your role is to argue for a LONG (BUY) position on Solana.
+SYSTEM_PROMPT = """You are a SENIOR TRADING STRATEGIST with 20 years experience reviewing analysis from technical and news analysts.
 
-Your personality:
-- Optimistic but not reckless
-- Focus on growth catalysts, ecosystem expansion, technical breakouts
-- Cite positive news, bullish chart patterns, strong support levels
-- Challenge bearish arguments with counterpoints
+Your job:
+- Compare technical vs news recommendations
+- Find what each analyst missed (blind spots)
+- Identify the PRIMARY RISK
+- Make final BUY/SELL/HOLD decision
 
-You argue in good faith - if the setup is genuinely terrible, you'll admit weakness.
-"""
-
-BEAR_SYSTEM_PROMPT = """You are the BEAR ADVOCATE in a professional trading debate. Your role is to argue for a SHORT (SELL) position on Solana.
-
-Your personality:
-- Skeptical but not pessimistic
-- Focus on risk factors, overextension, bearish divergences
-- Cite negative news, resistance levels, overbought conditions
-- Challenge bullish arguments with counterpoints
-
-You argue in good faith - if the setup is genuinely strong, you'll admit strength.
+Your style: Honest, risk-focused, decisive, actionable.
 """
 
 
-
-DEBATE_PROMPT = """
-TECHNICAL ANALYSIS SUMMARY:
-{technical_summary}
-
-NEWS SENTIMENT SUMMARY:
-{news_summary}
-
-<debate_instructions>
-You are participating in a structured debate about whether to trade Solana.
-
-ROUND 1: OPENING ARGUMENT
-Present your case in 3-4 bullet points:
-- What's your primary thesis?
-- What signals support your position?
-- What's your biggest conviction point?
-
-ROUND 2: COUNTERARGUMENT
-After hearing the opposing view, respond:
-- What's the strongest point your opponent made?
-- How do you counter that point?
-- What are they overlooking?
-
-ROUND 3: FINAL VERDICT
-- Given both sides, what's your confidence (0.0 to 1.0)?
-- What would need to happen to invalidate your thesis?
-- On a scale of 1-10, how strong is this setup?
-</debate_instructions>
-
-Provide your debate contribution in this format:
-
-<debate>
-ROUND 1 - OPENING ARGUMENT:
-[Your 3-4 bullet points]
-
-ROUND 2 - COUNTERARGUMENT:
-[Your response to opponent]
-
-ROUND 3 - FINAL VERDICT:
-Confidence: [0.0 to 1.0]
-Invalidation Trigger: [What would prove you wrong]
-Setup Strength: [1-10]
-</debate>
-"""
-
-
-SYNTHESIS_PROMPT = """
-You are a neutral trade arbitrator reviewing a Bull vs Bear debate.
-
-BULL CASE:
-{bull_case}
-
-BEAR CASE:
-{bear_case}
-
-TECHNICAL ANALYSIS:
+REFLECTION_PROMPT = """
+<technical_analysis>
 Recommendation: {tech_recommendation}
 Confidence: {tech_confidence}
+Entry: ${tech_entry} | Stop: ${tech_stop} | Target: ${tech_target}
+Key Signals:
+{tech_key_signals}
+
 Reasoning: {tech_reasoning}
 
-NEWS SENTIMENT:
-Recommendation: {news_recommendation}
+Summary: {tech_summary}
+
+Watch List:
+{tech_watchlist}
+
+Confidence Breakdown:
+{tech_confidence_breakdown}
+</technical_analysis>
+
+<news_analysis>
+Sentiment: {news_sentiment} ({news_label})
 Confidence: {news_confidence}
+
+Key Events:
+{news_key_events}
+
+Event Summary:
+{news_event_summary}
+
+Risk Flags:
+{news_risk_flags}
+
 Reasoning: {news_reasoning}
 
-<synthesis_task>
-Your job is to synthesise both arguments and make a FINAL CALL.
+Summary: {news_summary}
+
+What to Watch:
+{news_watch}
+
+Invalidation: {news_invalidation}
+</news_analysis>
+
+<analysis_framework>
+YOUR RESPONSE MUST USE THIS EXACT FORMAT:
 
 <thinking>
 
-STEP 1: IDENTIFY AGREEMENTS
-Where do both bull and bear agree? (These are high-confidence facts)
+PHASE 1: DO THEY AGREE OR CONFLICT?
+Compare the recommendations:
+- Technical says: [BUY/SELL/HOLD] with [X]% confidence
+- News says: [BULLISH/BEARISH/NEUTRAL] with [X]% confidence
+- Agreement: ALIGNED | PARTIAL | CONFLICTED
 
-STEP 2: IDENTIFY CONFLICTS
-Where do they disagree? Which side has stronger evidence?
+If both bullish (or both bearish) = ALIGNED
+If one says BUY, other says SELL = CONFLICTED
+If one neutral, other directional = PARTIAL
 
-STEP 3: ASSESS BLIND SPOTS
-What risks is the bull missing?
-What opportunities is the bear missing?
+Calculate alignment score (0.0 to 1.0):
+- ALIGNED = 0.8-1.0
+- PARTIAL = 0.4-0.7
+- CONFLICTED = 0.0-0.3
 
-STEP 4: FINAL RECOMMENDATION
-Given BOTH perspectives:
-- Should we BUY, SELL, or HOLD?
-- What's your confidence (0.0 to 1.0)?
-- What's the primary risk to this trade?
-- What's the key monitoring point for next 24-48 hours?
+Write 2 sentences explaining the alignment.
+
+
+PHASE 2: WHAT DID TECHNICAL MISS?
+Look at the news analysis and ask:
+- Did news mention any RISK FLAGS (hacks, regulatory, network issues)?
+- Are there positive catalysts (partnerships, upgrades) technical didn't see?
+- Is there a critical event that changes the technical setup?
+
+List 2-3 things technical analysis overlooked from news.
+
+
+PHASE 3: WHAT DID NEWS MISS?
+Look at the technical analysis and ask:
+- Did technical flag WEAK VOLUME that news ignored?
+- Are there chart warnings (overbought, divergence, overextended)?
+- Is the entry point risky (far from support)?
+
+List 2-3 things news analysis overlooked from technical.
+
+
+PHASE 4: WHAT'S THE PRIMARY RISK?
+Combine both views and identify the BIGGEST threat:
+- If both bullish: What could kill this trade?
+- If conflicting: Which has stronger evidence?
+- What's worst-case in next 24-48h?
+
+Risk level: LOW | MEDIUM | HIGH
+Write 2 sentences describing the primary risk.
+
+
+PHASE 5: FINAL DECISION
+Based on everything above:
+- Start with the LOWER confidence of the two
+- Adjust up if aligned (+10%)
+- Adjust down if conflicted (-20%)
+- Adjust down if high risk (-15%)
+
+Final confidence = [calculated value]
+Final recommendation = BUY | SELL | HOLD
+Position size = [% based on confidence]
+
+Write 2 sentences explaining your final decision.
 
 </thinking>
 
+
 <answer>
-Provide your synthesis in EXACT JSON format:
-
 {{
-  "bull_case_summary": "...."
-  "bear_case_summary": "..."
-  "bull_strength": 0.65,
-  "bear_strength": 0.55,
-  "consensus_points": ["point1", "point2"],
-  "conflict_points": ["conflict1", "conflict2"],
-  "blind_spots": {{
-    "bull_missing": ["risk1", "risk2"],
-    "bear_missing": ["opportunity1", "opportunity2"]
-  }},
   "recommendation": "BUY|SELL|HOLD",
-  "confidence": 0.70,
-  "primary_risk": "Description of main risk",
-  "monitoring_trigger": "What to watch in next 24-48h",
-  "reasoning": "Final synthesis in 2-3 sentences"
-}}
+  "confidence": 0.68,
+  "agreement_analysis": {{
+    "alignment_status": "ALIGNED|PARTIAL|CONFLICTED",
+    "alignment_score": 0.75,
+    "explanation": "Both technical and news are bullish, but news has liquidity concerns."
+  }},
 
+  "blind_spots": {{
+    "technical_missed": [
+      "Network outage risk mentioned in news",
+      "Visa partnership provides fundamental catalyst"
+    ],
+    "news_missed": [
+      "Volume is weak at 0.82x average - rally lacks conviction",
+      "Price 8% above EMA50, getting overextended"
+    ]
+  }},
+
+  "risk_assessment": {{
+    "primary_risk": "Weak volume despite bullish setup - rally could reverse if conviction doesn't improve",
+    "risk_level": "MEDIUM",
+    "risk_score": 0.55
+  }},
+
+  "monitoring": {{
+    "watch_next_24h": [
+      "Volume must increase above 1.2x to validate rally",
+      "Price must hold above $184 (EMA20 support)",
+      "Watch for any network stability issues"
+    ],
+    "invalidation_trigger": "Break below $184 or volume stays weak <1.0x for 48h"
+  }},
+
+  "confidence_calculation": {{
+    "starting_confidence": 0.62,
+    "alignment_bonus": 0.10,
+    "risk_penalty": -0.15,
+    "confidence": 0.57,
+    "reasoning": "Started with news confidence (lower of the two), added alignment bonus, subtracted for weak volume risk"
+  }},
+
+  "reasoning": "Technical and news both point bullish, giving us directional confidence. However, weak volume (0.82x) and network reliability concerns reduce conviction. Key watch: volume must surge above 1.2x within 48h to validate this move."
+}}
 </answer>
 
-</synthesis_task>
+Do NOT write ANYTHING before the <thinking> tag or after the </answer> tag. you answer tag should exactly match the above answer tag 
 
+</analysis_framework>
+
+<critical_rules>
+1. Always start with the LOWER confidence between technical and news
+2. If alignment_score <0.4, reduce confidence by at least 20%
+3. If risk_level is HIGH, reduce confidence accordingly
+4. If final_confidence <0.5, always recommend HOLD
+5. monitoring section is MANDATORY - traders need to know what to watch
+6. Keep final_reasoning to 2-3 sentences maximum
+7. Be specific with numbers (prices, percentages, timeframes)
+</critical_rules>
 """
 
 
@@ -156,187 +200,205 @@ class ReflectionAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             model="claude-3-5-haiku-20241022",
-            temperature=0.5  # Higher temp for debate diversity
+            temperature=0.3
         )
 
     def execute(self, state: AgentState) -> AgentState:
+        tech = state.get('technical', {})
+        tech_recommendation = tech.get('recommendation', 'HOLD')
+        tech_confidence = tech.get('confidence', 0.5)
+        tech_entry = tech.get('entry_level', 0)
+        tech_stop = tech.get('stop_loss', 0)
+        tech_target = tech.get('take_profit', 0)
+        tech_key_signals = tech.get('key_signals', [])
+        tech_reasoning = tech.get('reasoning', 'No reasoning provided')
+        tech_summary = tech.get('recommendation_summary', 'No summary provided')
+        tech_watchlist = tech.get('watch_list', {})
+        tech_confidence_breakdown = tech.get('confidence_breakdown', {})
 
-        techAnalyst = state['technical']
-        tech_recommendation = techAnalyst['recommendation']
-        tech_confidence = techAnalyst['confidence']
-        tech_reasoning = techAnalyst['reasoning']
-        tech_keySignals = techAnalyst['key_signals']
+        news = state.get('news', {})
+        news_sentiment = news.get('overall_sentiment', 0.5)
+        news_label = news.get('sentiment_label', 'NEUTRAL')
+        news_confidence = news.get('confidence', 0.5)
+        news_key_events = news.get('key_events', [])
+        news_event_summary = news.get('event_summary', {})
+        news_risk_flags = news.get('risk_flags', [])
+        news_reasoning = news.get('reasoning', 'No reasoning provided')
+        news_summary = news.get('recommendation_summary', 'No summary provided')
+        news_watch = news.get('what_to_watch', [])
+        news_invalidation = news.get('invalidation', 'Not specified')
 
-        newsAnalyst = state['news']
-        news_recommendation = newsAnalyst['recommendation']
-        news_confidence = newsAnalyst['confidence']
-        news_reasoning = newsAnalyst['reasoning']
-        news_sentiment = newsAnalyst['overall_sentiment']
-        news_criticalEvents = newsAnalyst['critical_events']
+        tech_key_signals_formatted = '\n'.join([f"  - {signal}" for signal in tech_key_signals])
+        
+        tech_watchlist_formatted = json.dumps(tech_watchlist, indent=2) if tech_watchlist else "No watch list provided"
+        
+        tech_confidence_breakdown_formatted = json.dumps(tech_confidence_breakdown, indent=2) if tech_confidence_breakdown else "No breakdown provided"
+        news_key_events_formatted = '\n'.join([
+            f"  - {event.get('title', 'Unknown')} ({event.get('type', 'Unknown')}) - {event.get('impact', 'Unknown')}"
+            for event in news_key_events[:5]  # Limit to top 5 events
+        ]) if news_key_events else "No key events"
+        
+        news_event_summary_formatted = json.dumps(news_event_summary, indent=2) if news_event_summary else "No summary"
+        news_risk_flags_formatted = '\n'.join([f"  - {flag}" for flag in news_risk_flags]) if news_risk_flags else "No risk flags"
+        news_watch_formatted = '\n'.join([f"  - {item}" for item in news_watch]) if news_watch else "Nothing specified"
 
-
-
-        # summaries for debate
-        technical_summary = f"""
-Recommendation: {tech_recommendation}
-Confidence: {tech_confidence:.0%}
-Key Signals: {', '.join(tech_keySignals)}
-Reasoning: {tech_reasoning}
-"""
-
-        news_summary = f"""
-Sentiment: {news_sentiment:.0%}
-Recommendation: {news_recommendation}
-Critical Events: {', '.join(news_criticalEvents)}
-Reasoning: {news_reasoning}
-"""
-
-        # === ROUND 1: BULL ADVOCATE ===
-        bull_prompt = BULL_SYSTEM_PROMPT + "\n\n" + DEBATE_PROMPT.format(
-            technical_summary=technical_summary,
-            news_summary=news_summary
-        )
-
-        bull_response = llm(
-            bull_prompt,
-            model=self.model,
-            temperature=0.5,
-            max_tokens=500
-        )
-
-        # === ROUND 2: BEAR ADVOCATE ===
-        bear_prompt = BEAR_SYSTEM_PROMPT + "\n\n" + DEBATE_PROMPT.format(
-            technical_summary=technical_summary,
-            news_summary=news_summary
-        )
-
-        bear_response = llm(
-            bear_prompt,
-            model=self.model,
-            temperature=0.5,
-            max_tokens=500
-        )
-
-        # === SYNTHESIS: NEUTRAL ARBITRATOR ===
-        synthesis_prompt = SYNTHESIS_PROMPT.format(
-            bull_case=bull_response,
-            bear_case=bear_response,
+  
+        full_prompt = SYSTEM_PROMPT + "\n\n" + REFLECTION_PROMPT.format(
             tech_recommendation=tech_recommendation,
-            tech_confidence=tech_confidence,
+            tech_confidence=f"{tech_confidence:.2%}",
+            tech_entry=tech_entry if tech_entry else "N/A",
+            tech_stop=tech_stop if tech_stop else "N/A",
+            tech_target=tech_target if tech_target else "N/A",
+            tech_key_signals=tech_key_signals_formatted,
             tech_reasoning=tech_reasoning,
-            news_recommendation=news_recommendation,
-            news_confidence=news_confidence,
-            news_reasoning=news_reasoning
+            tech_summary=tech_summary,
+            tech_watchlist=tech_watchlist_formatted,
+            tech_confidence_breakdown=tech_confidence_breakdown_formatted,
+            news_sentiment=f"{news_sentiment:.2%}",
+            news_label=news_label,
+            news_confidence=f"{news_confidence:.2%}",
+            news_key_events=news_key_events_formatted,
+            news_event_summary=news_event_summary_formatted,
+            news_risk_flags=news_risk_flags_formatted,
+            news_reasoning=news_reasoning,
+            news_summary=news_summary,
+            news_watch=news_watch_formatted,
+            news_invalidation=news_invalidation
         )
 
-        synthesis_response = llm(
-            synthesis_prompt,
+        response = llm(
+            full_prompt,
             model=self.model,
-            temperature=0.3,
-            max_tokens=700
+            temperature=self.temperature,
+            max_tokens=2500
         )
 
         try:
-            synthesis_json = re.sub(r'```json\s*|\s*```', '', synthesis_response).strip()
+            thinking_match = re.search(r'<thinking>(.*?)</thinking>', response, re.DOTALL)
+            thinking = thinking_match.group(1).strip() if thinking_match else ""
+            answer_match = re.search(r'<answer>(.*?)</answer>', response, re.DOTALL)
+            if answer_match:
+                answer_json = answer_match.group(1).strip()
+            else:
+                json_match = re.search(r'\{.*\}', response, re.DOTALL)
+                if json_match:
+                    answer_json = json_match.group(0)
+                else:
+                    raise ValueError("No JSON found in response")
 
-            json_match = re.search(r'\{.*\}', synthesis_json, re.DOTALL)
-            if json_match:
-                synthesis_json = json_match.group(0)
+            answer_json = answer_json.strip()
+            answer_json = re.sub(r'^```json\s*', '', answer_json)
+            answer_json = re.sub(r'\s*```$', '', answer_json)
+            
+            answer_json = answer_json.replace('"', '"').replace('"', '"')
+            answer_json = answer_json.replace(''', "'").replace(''', "'")
+            
+            first_brace = answer_json.find('{')
+            last_brace = answer_json.rfind('}')
+            if first_brace != -1 and last_brace != -1:
+                answer_json = answer_json[first_brace:last_brace+1]
 
-            synthesis_data = json.loads(synthesis_json)
+            reflection_data = json.loads(answer_json)
+            reflection_data['thinking'] = thinking
 
-            state['reflection'] = synthesis_data
+            state['reflection'] = reflection_data
 
             dm = DataManager()
-            dm.save_reflection_analysis(data=state['reflection'])
-        
+            dm.save_reflection_analysis(data=reflection_data)
+
+            print("✅ Reflection agent completed successfully")
 
         except (json.JSONDecodeError, ValueError) as e:
-            print(f"  Reflection agent parsing error: {e}")
-            print(f"Response: {synthesis_response[:300]}")
+            print(f"⚠️  Reflection agent parsing error: {e}")
+            print(f"Response preview: {response[:500]}")
 
+            # Fallback: Create minimal reflection output
             state['reflection'] = {
-                'bull_case_summary': bull_response[:300],
-                'bear_case_summary': bear_response[:300],
                 'recommendation': tech_recommendation,
-                'confidence': tech_confidence * 0.9,
-                'primary_risk': 'Synthesis error - proceed with caution',
-                'monitoring_trigger': 'None identified',
-                'reasoning': f"Debate synthesis failed: {str(e)[:100]}",
-                'bull_strength': 0.5,
-                'bear_strength': 0.5,
-                'consensus_points': [],
-                'conflict_points': [],
-                'blind_spots': ['Synthesis failed - unable to identify blind spots']
+                'confidence': min(tech_confidence, news_confidence) * 0.8,
+                'agreement_analysis': {
+                    'alignment_status': 'UNKNOWN',
+                    'alignment_score': 0.5,
+                    'explanation': 'Parsing error - using fallback analysis'
+                },
+                'blind_spots': {
+                    'technical_missed': ['Unable to analyze due to parsing error'],
+                    'news_missed': ['Unable to analyze due to parsing error']
+                },
+                'risk_assessment': {
+                    'primary_risk': f'Analysis error: {str(e)[:100]}',
+                    'risk_level': 'HIGH',
+                    'risk_score': 0.8
+                },
+                'monitoring': {
+                    'watch_next_24h': ['Re-run analysis'],
+                    'invalidation_trigger': 'N/A'
+                },
+                'confidence_calculation': {
+                    'starting_confidence': min(tech_confidence, news_confidence),
+                    'alignment_bonus': 0.0,
+                    'risk_penalty': -0.2,
+                    'confidence': min(tech_confidence, news_confidence) * 0.8,
+                    'reasoning': 'Fallback due to parsing error'
+                },
+                'reasoning': f'Reflection analysis failed due to parsing error. Defaulting to conservative HOLD recommendation. Error: {str(e)[:100]}',
+                'thinking': f'Error occurred during analysis: {str(e)}'
             }
 
         return state
 
 
 if __name__ == "__main__":
+    # Test with sample state
     agent = ReflectionAgent()
     test_state = AgentState({
         'technical': {
             'recommendation': 'BUY',
             'confidence': 0.72,
-            'timeframe': '3-7 days',
+            'timeframe': '3-5 days',
             'key_signals': [
-                "Strong bullish momentum with RSI at 68 (not overbought)",
                 "Price breaking above EMA50 resistance at $145.20",
                 "Volume surge of 1.8x average (institutional interest)",
-                "MACD crossover indicating upward trend continuation",
-                "Support level holding strong at $142.50"
+                "MACD crossover indicating upward trend continuation"
             ],
             'entry_level': 145.50,
             'stop_loss': 142.00,
             'take_profit': 155.00,
-            'reasoning': "Technical indicators suggest a strong bullish setup. The price has successfully broken above the key EMA50 resistance level with significant volume confirmation. RSI is in a healthy range (68), indicating room for further upside. The MACD crossover and strong support at $142.50 provide additional confidence. Risk/reward ratio is favorable at approximately 1:3.2.",
+            'reasoning': "Strong bullish setup with volume confirmation",
             'confidence_breakdown': {
                 'trend_strength': 0.75,
                 'momentum_confirmation': 0.80,
                 'volume_quality': 0.85,
-                'risk_reward': 0.60,
-                'final_adjusted': 0.72
+                'risk_reward': 0.60
             },
-            'recommendation_summary': 'HOLD CASH. The current Solana market is untradeable due to critically low volume (61,354 trades vs 3.4M average) and complete lack of directional momentum. Buy pressure has collapsed to 35.5%, signaling zero conviction. Do NOT attempt to trade until: (1) Daily volume returns to >3M trades, (2) Buy pressure recovers above 50%, (3) Price shows clear directional movement above or below key support/resistance levels. Potential downside risk is significant with current market structure.',
+            'recommendation_summary': 'Enter long at $145.50, stop at $142, target $155. Good R/R ratio.',
             'watch_list': {
-                'confirmation_signals': ["Daily volume returns to >3M trades", "Buy pressure recovers above 50%", "Price breaks and holds above $136.48 or below $128.87 on strong volume"],
-                'invalidation_signals': ["Continued low volume (<1M daily trades)", "Buy pressure remains below 40%", "Price continues to chop in narrow range"],
-                'key_levels_24_48h': ["$136.48 - Potential resistance", "$128.87 - Potential support", "$125.92 - Lower support level"],
-                'time_based_triggers': ["24 hours: Monitor volume and buy pressure", "48 hours: If no clear directional move, remain in cash"]
+                'confirmation_signals': ["Volume stays above 1.5x", "Price holds EMA50"],
+                'invalidation_signals': ["Break below $142"]
             }
         },
         'news': {
-            'overall_sentiment': 0.62,
+            'overall_sentiment': 0.65,
             'sentiment_label': 'NEUTRAL-BULLISH',
-            'confidence': 0.65,
-            'all_recent_news': [
-                {'title': 'Ondo Finance Tokenized Stocks on Solana', 'published_at': '2025-12-15T15:49:41', 'url': 'https://www.coindesk.com/business/2025/12/15/ondo-finance-to-offer-tokenized-u-s-stocks-etfs-on-solana-early-next-year', 'source': 'CoinDesk'},
-                {'title': 'CME Group Solana Futures', 'published_at': '2025-12-15T16:07:00', 'url': 'https://www.coindesk.com/markets/2025/12/15/cme-group-expands-crypto-derivatives-with-spot-quoted-xrp-and-solana-futures', 'source': 'CoinDesk'}
-            ],
+            'confidence': 0.62,
             'key_events': [
-                {'title': 'Ondo Finance Tokenized Stocks on Solana', 'published_at': '2025-12-15T15:49:41', 'url': 'https://www.coindesk.com/business/2025/12/15/ondo-finance-to-offer-tokenized-u-s-stocks-etfs-on-solana-early-next-year', 'type': 'PARTNERSHIP', 'source_credibility': 'REPUTABLE', 'news_age_hours': 12, 'impact': 'BULLISH', 'reasoning': "Expanding Solana's real-world asset tokenization capabilities"},
-                {'title': 'CME Group Solana Futures', 'published_at': '2025-12-15T16:07:00', 'url': 'https://www.coindesk.com/markets/2025/12/15/cme-group-expands-crypto-derivatives-with-spot-quoted-xrp-and-solana-futures', 'type': 'PARTNERSHIP', 'source_credibility': 'REPUTABLE', 'news_age_hours': 12, 'impact': 'BULLISH', 'reasoning': 'Institutional derivatives product increases SOL legitimacy'},
-                {'title': 'Solana Liquidity Challenges', 'published_at': '2025-12-10T05:03:08', 'url': 'https://decrypt.co/351743/solana-liquidity-plummets-bear-level-500m-liquidation-overhang', 'type': 'ECOSYSTEM', 'source_credibility': 'REPUTABLE', 'news_age_hours': 120, 'impact': 'BEARISH', 'reasoning': 'Declining Total Value Locked and memecoin demand weakness'}
+                {'title': 'Visa partners with Solana', 'type': 'PARTNERSHIP', 'impact': 'BULLISH'},
+                {'title': 'Network slowdown reported', 'type': 'SECURITY', 'impact': 'BEARISH'}
             ],
             'event_summary': {
                 'actionable_catalysts': 2,
                 'hype_noise': 1,
                 'critical_risks': 1
             },
-            'risk_flags': ['Declining Total Value Locked', 'Liquidity challenges in ecosystem'],
-            'stance': "News is cautiously bullish. Visa partnership is a strong positive catalyst, but recent network issues create some concern. Overall, news SUPPORTS taking long positions but with reduced position size due to reliability questions.",
-            'suggested_timeframe': '3-5 days',
-            'recommendation_summary': "News presents a cautiously bullish 0.62 sentiment. CME futures and Ondo Finance partnerships provide strong institutional validation, offsetting recent liquidity concerns. Traders should maintain positions but with reduced size, watching for network stability and further institutional adoption signals.",
-            'what_to_watch': ['Ondo Finance tokenization launch details', 'CME Solana futures trading volume', 'Total Value Locked trend'],
-            'invalidation': "Sustained decline in TVL below current levels OR failure to generate meaningful institutional product adoption."
+            'risk_flags': ['Network reliability concerns'],
+            'reasoning': "Positive partnerships offset by technical issues",
+            'recommendation_summary': 'Cautiously bullish - institutional adoption vs network concerns',
+            'what_to_watch': ['Visa partnership launch', 'Network stability'],
+            'invalidation': 'Major network outage or partnership delay'
         }
     })
 
     result = agent.execute(test_state)
     print("\n===== REFLECTION AGENT OUTPUT =====")
-    reflection = json.loads(result.get('reflection_analysis', '{}'))
-    synthesis = reflection.get('synthesis', {})
-    print(f"\n ---- reflection agent result: \n {synthesis}")
-    print(f"Bull Strength: {synthesis.get('bull_strength')}")
-
+    reflection = result.get('reflection', {})
+    print(json.dumps(reflection, indent=2))

@@ -63,15 +63,43 @@ class ReflectionAnalysisSchema(BaseModel):
     reasoning: str
 
 
+class AgentSynthesisSchema(BaseModel):
+    """Agent synthesis data"""
+    technical_weight: float
+    news_weight: float
+    reflection_weight: float
+    weighted_confidence: float
+    agreement_summary: str
+    technical_contribution: str
+    news_contribution: str
+    reflection_contribution: str
+
+class ExecutionPlanSchema(BaseModel):
+    """Execution plan details"""
+    entry_timing: str
+    position_size: str
+    entry_price_target: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    timeframe: str
+    risk_reward_ratio: str
+
+class RiskManagementSchema(BaseModel):
+    """Risk management details"""
+    max_loss_per_trade: str
+    primary_risk: str
+    secondary_risks: List[str]
+    exit_conditions: List[str]
+    monitoring_checklist: List[str]
+
 class TraderDecisionSchema(BaseModel):
     """Trader decision nested output"""
     decision: str
     confidence: float
-    consensus_level: Optional[str] = None
-    agreeing_agents: Optional[List[str]] = None
-    disagreeing_agents: Optional[List[str]] = None
-    primary_concern: Optional[str] = None
     reasoning: str
+    agent_synthesis: Optional[AgentSynthesisSchema] = None
+    execution_plan: Optional[ExecutionPlanSchema] = None
+    risk_management: Optional[RiskManagementSchema] = None
     thinking: Optional[str] = None
 
 

@@ -1,8 +1,4 @@
-"""
-News Agent - Analyzes news sentiment with event classification.
-Categorizes events to identify actionable catalysts vs noise.
-Uses structured 5-step analysis framework 
-"""
+
 
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))

@@ -67,23 +67,41 @@ class NewsOutput(TypedDict):
     thinking: str
 
 
+class AgreementAnalysis(TypedDict):
+    alignment_status: str
+    alignment_score: float
+    explanation: str
+
 class BlindSpots(TypedDict):
-    bull_missing: List[str]
-    bear_missing: List[str]
+    technical_missed: List[str]
+    news_missed: List[str]
+
+class RiskAssessment(TypedDict):
+    primary_risk: str
+    risk_level: str
+    risk_score: float
+
+class Monitoring(TypedDict):
+    watch_next_24h: List[str]
+    invalidation_trigger: str
+
+class ConfidenceCalculation(TypedDict):
+    starting_confidence: float
+    alignment_bonus: float
+    risk_penalty: float
+    confidence: float
+    reasoning: str
 
 class ReflectionOutput(TypedDict):
-    bull_case_summary: str
-    bear_case_summary: str
-    bull_strength: float
-    bear_strength: float
     recommendation: str
     confidence: float
-    primary_risk: str
-    monitoring_trigger: str
-    consensus_points: List[str]
-    conflict_points: List[str]
+    agreement_analysis: AgreementAnalysis
     blind_spots: BlindSpots
+    risk_assessment: RiskAssessment
+    monitoring: Monitoring
+    confidence_calculation: ConfidenceCalculation
     reasoning: str
+    thinking: str
 
 
 class RiskOutput(TypedDict):
@@ -109,14 +127,39 @@ class RiskOutput(TypedDict):
     final_size_calculation: Dict[str, float]
 
 
+class AgentSynthesis(TypedDict):
+    technical_weight: float
+    news_weight: float
+    reflection_weight: float
+    weighted_confidence: float
+    agreement_summary: str
+    technical_contribution: str
+    news_contribution: str
+    reflection_contribution: str
+
+class ExecutionPlan(TypedDict):
+    entry_timing: str
+    position_size: str
+    entry_price_target: float
+    stop_loss: float
+    take_profit: float
+    timeframe: str
+    risk_reward_ratio: str
+
+class RiskManagement(TypedDict):
+    max_loss_per_trade: str
+    primary_risk: str
+    secondary_risks: List[str]
+    exit_conditions: List[str]
+    monitoring_checklist: List[str]
+
 class TraderOutput(TypedDict):
     decision: Literal['BUY', 'SELL', 'HOLD']
     confidence: float
-    consensus_level: str
-    agreeing_agents: List[str]
-    disagreeing_agents: List[str]
-    primary_concern: str
     reasoning: str
+    agent_synthesis: AgentSynthesis
+    execution_plan: ExecutionPlan
+    risk_management: RiskManagement
     thinking: str
 
 

@@ -327,28 +327,25 @@ class DataManager:
 
     def save_reflection_analysis(self, data: Dict) -> int:
         from app.database.models.analysis import ReflectionAnalyst
-        
+
         record = {
-            'bull_case_summary': data.get('bull_case_summary'),
-            'bear_case_summary': data.get('bear_case_summary'),
-            'bull_strength': data.get('bull_strength'),
-            'bear_strength': data.get('bear_strength'),
             'recommendation': data.get('recommendation'),
             'confidence': data.get('confidence'),
-            'primary_risk': data.get('primary_risk'),
-            'monitoring_trigger': data.get('monitoring_trigger'),
-            'consensus_points': data.get('consensus_points'),
-            'conflict_points': data.get('conflict_points'),
+            'agreement_analysis': data.get('agreement_analysis'),
             'blind_spots': data.get('blind_spots'),
-            'reasoning': data.get('reasoning')
+            'risk_assessment': data.get('risk_assessment'),
+            'monitoring': data.get('monitoring'),
+            'confidence_calculation': data.get('confidence_calculation'),
+            'reasoning': data.get('reasoning'),
+            'thinking': data.get('thinking')
         }
-        
+
         stmt = insert(ReflectionAnalyst).values(record)
         # stmt = stmt.on_conflict_do_update(
         #     index_elements=['timestamp'],
         #     set_=record
         # )
-        
+
         self.db.execute(stmt)
         self.db.commit()
         print(f"✅ Saved Reflection Analysis for {datetime.now()}")
@@ -356,60 +353,26 @@ class DataManager:
 
 
 
-    def save_risk_analysis(self, timestamp: datetime, data: Dict) -> int:
-        from app.database.models.analysis import RiskAnalyst
-
-        record = {
-            'timestamp': timestamp,
-            'approved': data.get('approved', 'NO'),
-            'position_size_percent': data.get('position_size_percent', 0.0),
-            'position_size_usd': data.get('position_size_usd', 0.0),
-            'max_loss_usd': data.get('max_loss_usd', 0.0),
-            'entry_price': data.get('entry_price'),
-            'stop_loss': data.get('stop_loss'),
-            'take_profit': data.get('take_profit'),
-            'risk_reward_ratio': data.get('risk_reward_ratio', 0.0),
-            'validation_details': data.get('validation_details'),
-            'warnings': data.get('warnings'),
-            'reasoning': data.get('reasoning'),
-            'total_balance': data.get('total_balance'),
-            'current_risk_percent': data.get('current_risk_percent'),
-            'open_positions': data.get('open_positions')
-        }
-        
-        stmt = insert(RiskAnalyst).values(record)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=['timestamp'],
-            set_=record
-        )
-        
-        self.db.execute(stmt)
-        self.db.commit()
-        print(f"✅ Saved Risk Analysis for {timestamp}")
-        return 1
-
-
-
     def save_trader_decision(self, timestamp: datetime, data: Dict) -> int:
         from app.database.models.analysis import TraderAnalyst
-        
+
         record = {
             'timestamp': timestamp,
             'decision': data.get('decision'),
             'confidence': data.get('confidence'),
-            'consensus_level': data.get('consensus_level'),
-            'agreeing_agents': data.get('agreeing_agents'),
-            'disagreeing_agents': data.get('disagreeing_agents'),
-            'primary_concern': data.get('primary_concern'),
-            'reasoning': data.get('reasoning')
+            'reasoning': data.get('reasoning'),
+            'agent_synthesis': data.get('agent_synthesis'),
+            'execution_plan': data.get('execution_plan'),
+            'risk_management': data.get('risk_management'),
+            'thinking': data.get('thinking')
         }
-        
+
         stmt = insert(TraderAnalyst).values(record)
         # stmt = stmt.on_conflict_do_update(
         #     index_elements=['timestamp'],
         #     set_=record
         # )
-        
+
         self.db.execute(stmt)
         self.db.commit()
         print(f"✅ Saved Trader Decision for {timestamp}")

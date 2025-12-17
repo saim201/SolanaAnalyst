@@ -6,7 +6,7 @@ import uuid
 from app.api.schemas import TradeAnalysisResponse
 from app.agents.pipeline import TradingGraph
 from app.database.config import get_db_session
-from app.database.models import TechnicalAnalyst, NewsAnalyst, ReflectionAnalyst, RiskAnalyst, TraderAnalyst
+from app.database.models import TechnicalAnalyst, NewsAnalyst, ReflectionAnalyst, TraderAnalyst
 from app.data.refresh_manager import RefreshManager
 
 router = APIRouter(prefix="/api", tags=["analysis"])

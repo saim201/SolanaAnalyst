@@ -20,8 +20,8 @@ def test_connection():
 
 def init_db():
     from .models import (
-        TechnicalAnalyst, NewsAnalyst, ReflectionAnalyst, RiskAnalyst, TraderAnalyst, CandlestickModel,
-        CandlestickIntradayModel, TickerModel, IndicatorsModel, PortfolioState, Position
+        TechnicalAnalyst, NewsAnalyst, ReflectionAnalyst, TraderAnalyst, CandlestickModel,
+        CandlestickIntradayModel, TickerModel, IndicatorsModel
 )
 
     print(f"DEBUG: Base.metadata.tables = {list(Base.metadata.tables.keys())}")
