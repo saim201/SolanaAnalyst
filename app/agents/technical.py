@@ -231,7 +231,11 @@ Provide your trading recommendation in this EXACT JSON format:
 }}
 </answer>
 
-Do NOT write ANYTHING before the <thinking> tag or after the </answer> tag.
+CRITICAL OUTPUT FORMAT REQUIREMENTS:
+1. Start your response IMMEDIATELY with <thinking> - NO introduction, NO "I understand", NO preamble
+2. End with </answer> - NOTHING after it
+3. The JSON in <answer> must be valid and complete
+4. DO NOT explain the task, DO NOT acknowledge instructions - JUST START WITH <thinking>
 
 </analysis_framework>
 
