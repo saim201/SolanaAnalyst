@@ -13,7 +13,6 @@ router = APIRouter(prefix="/api", tags=["trades"])
 
 @router.get("/lastTrade", response_model=TradeDecisionResponse)
 def get_last_trade_decision():
-    """Get the most recent trade decision"""
     db = None
     try:
         db = get_db_session()
@@ -46,12 +45,6 @@ def get_last_trade_decision():
 
 @router.get("/trades/history", response_model=TradeHistoryResponse)
 def get_trades_history(limit: int = 10):
-    """
-    Get trade history.
-    
-    Args:
-        limit: Maximum number of trades to return (default: 10, max: 100)
-    """
     db = None
     try:
         # Validate limit parameter

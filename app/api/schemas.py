@@ -2,14 +2,10 @@
 Pydantic schemas for API request/response validation.
 """
 from pydantic import BaseModel
-from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Dict
 
 
 class TradeAnalysisResponse(BaseModel):
-    # decision: str
-    # confidence: float
-    # reasoning: str
     technical_analysis: Dict
     news_analysis: Dict
     reflection_analysis: Dict
@@ -17,119 +13,7 @@ class TradeAnalysisResponse(BaseModel):
     timestamp: str
 
 
-class TechnicalAnalysisSchema(BaseModel):
-    """Technical analysis nested output"""
-    recommendation: str
-    confidence: float
-    confidence_breakdown: Optional[List[str]] = None
-    timeframe: Optional[str] = None
-    key_signals: Optional[List[str]] = None
-    entry_level: Optional[float] = None
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
-    reasoning: str
-    thinking: Optional[str] = None
-
-
-class NewsAnalysisSchema(BaseModel):
-    """News analysis nested output"""
-    overall_sentiment: float
-    sentiment_trend: str
-    sentiment_breakdown: Optional[Dict[str, float]] = None
-    recommendation: str
-    confidence: float
-    hold_duration: Optional[str] = None
-    critical_events: Optional[List[str]] = None
-    event_classification: Optional[Dict[str, int]] = None
-    risk_flags: Optional[List[str]] = None
-    time_sensitive_events: Optional[List[str]] = None
-    reasoning: str
-    thinking: Optional[str] = None
-
-
-class ReflectionAnalysisSchema(BaseModel):
-    """Reflection analysis nested output"""
-    bull_case_summary: str
-    bear_case_summary: str
-    bull_strength: float
-    bear_strength: float
-    recommendation: str
-    confidence: float
-    primary_risk: Optional[str] = None
-    monitoring_trigger: Optional[str] = None
-    consensus_points: Optional[List[str]] = None
-    conflict_points: Optional[List[str]] = None
-    blind_spots: Optional[Any] = None  # Can be List or Dict
-    reasoning: str
-
-
-class AgentSynthesisSchema(BaseModel):
-    """Agent synthesis data"""
-    technical_weight: float
-    news_weight: float
-    reflection_weight: float
-    weighted_confidence: float
-    agreement_summary: str
-    technical_contribution: str
-    news_contribution: str
-    reflection_contribution: str
-
-class ExecutionPlanSchema(BaseModel):
-    """Execution plan details"""
-    entry_timing: str
-    position_size: str
-    entry_price_target: Optional[float] = None
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
-    timeframe: str
-    risk_reward_ratio: str
-
-class RiskManagementSchema(BaseModel):
-    """Risk management details"""
-    max_loss_per_trade: str
-    primary_risk: str
-    secondary_risks: List[str]
-    exit_conditions: List[str]
-    monitoring_checklist: List[str]
-
-class TraderDecisionSchema(BaseModel):
-    """Trader decision nested output"""
-    decision: str
-    confidence: float
-    reasoning: str
-    agent_synthesis: Optional[AgentSynthesisSchema] = None
-    execution_plan: Optional[ExecutionPlanSchema] = None
-    risk_management: Optional[RiskManagementSchema] = None
-    thinking: Optional[str] = None
-
-
-class NestedAnalysisResponse(BaseModel):
-    """Full nested analysis response matching agent state structure"""
-    technical: Optional[TechnicalAnalysisSchema] = None
-    news: Optional[NewsAnalysisSchema] = None
-    reflection: Optional[ReflectionAnalysisSchema] = None
-    trader: Optional[TraderDecisionSchema] = None
-    timestamp: str
-
-
-class MarketDataResponse(BaseModel):
-    """Response from market data endpoint"""
-    price_data: str
-    indicators: str
-    news_data: str
-
-
-class PortfolioStatusResponse(BaseModel):
-    """Response from portfolio status endpoint"""
-    cash: float
-    sol_held: float
-    price: float
-    net_worth: float
-    roi: float
-
-
 class TradeDecisionResponse(BaseModel):
-    """Response for a single trade decision"""
     id: int
     decision: str
     confidence: float
@@ -139,40 +23,30 @@ class TradeDecisionResponse(BaseModel):
 
 
 class TradeHistoryResponse(BaseModel):
-    """Response from trade history endpoint"""
     trades: List[TradeDecisionResponse]
     total_trades: int
     timestamp: str
 
 
 class HealthResponse(BaseModel):
-    """Health check response"""
     status: str
     timestamp: str
     service: str
 
 
 class StatusResponse(BaseModel):
-    """Root status response"""
     status: str
     service: str
     version: str
 
 
 class RefreshDataResponse(BaseModel):
-    """Response from data refresh endpoint"""
     status: str
     message: str
     timestamp: str
 
 
-class ErrorResponse(BaseModel):
-    """Error response"""
-    detail: str
-
-
 class TechnicalDataResponse(BaseModel):
-    """Response from technical data endpoint"""
     currentPrice: float
     priceChange24h: float
     ema50: float
@@ -186,11 +60,21 @@ class TechnicalDataResponse(BaseModel):
     macd_line: float
     macd_signal: float
     timestamp: str
-    # Additional indicators
-    ema20: Optional[float] = None
-    bb_upper: Optional[float] = None
-    bb_lower: Optional[float] = None
-    atr: Optional[float] = None
-    support1: Optional[float] = None
-    resistance1: Optional[float] = None
-    pivot_weekly: Optional[float] = None
+    ema20: float | None = None
+    bb_upper: float | None = None
+    bb_lower: float | None = None
+    atr: float | None = None
+    support1: float | None = None
+    resistance1: float | None = None
+    pivot_weekly: float | None = None
+
+
+class TickerResponse(BaseModel):
+    lastPrice: float
+    priceChangePercent: float
+    openPrice: float
+    highPrice: float
+    lowPrice: float
+    volume: float
+    quoteVolume: float
+    timestamp: str

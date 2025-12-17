@@ -4,6 +4,7 @@ import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 import json
 import re
+from datetime import datetime, timezone
 from app.agents.base import BaseAgent, AgentState
 from app.agents.llm import llm
 from app.agents.db_fetcher import DataQuery
@@ -256,11 +257,15 @@ class NewsAgent(BaseAgent):
                 answer_json = response
 
             answer_json = re.sub(r'```json\s*|\s*```', '', answer_json).strip()
+
+            # Remove control characters that break JSON parsing
+            answer_json = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', answer_json)
+
             news_data = json.loads(answer_json)
 
             if thinking:
                 news_data['thinking'] = thinking
-
+            news_data['timestamp'] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             state['news'] = news_data
 
             dm = DataManager()

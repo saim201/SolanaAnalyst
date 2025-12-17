@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from datetime import datetime
 from sqlalchemy import desc
 
-from app.api.schemas import RefreshDataResponse, TechnicalDataResponse
+from app.api.schemas import RefreshDataResponse, TechnicalDataResponse, TickerResponse
 from app.data.refresh_manager import RefreshManager
 from app.database.config import get_db_session
 from app.database.models import TickerModel, IndicatorsModel
@@ -36,6 +36,38 @@ def refresh_market_data():
             status_code=500,
             detail=f"Market data refresh failed: {str(e)}"
         )
+
+
+@router.get("/sol/ticker", response_model=TickerResponse)
+def get_ticker():
+    db = None
+    try:
+        db = get_db_session()
+
+        ticker = db.query(TickerModel).order_by(desc(TickerModel.timestamp)).first()
+        if not ticker:
+            raise HTTPException(status_code=404, detail="No ticker data found")
+
+        return TickerResponse(
+            lastPrice=ticker.lastPrice,
+            priceChangePercent=ticker.priceChangePercent,
+            openPrice=ticker.openPrice,
+            highPrice=ticker.highPrice,
+            lowPrice=ticker.lowPrice,
+            volume=ticker.volume,
+            quoteVolume=ticker.quoteVolume,
+            timestamp=ticker.timestamp.isoformat()
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch ticker data: {str(e)}")
+    finally:
+        if db:
+            db.close()
+
+
+
+
 
 
 @router.get("/sol/technical_data", response_model=TechnicalDataResponse)
@@ -89,3 +121,4 @@ def get_technical_data():
     finally:
         if db:
             db.close()
+

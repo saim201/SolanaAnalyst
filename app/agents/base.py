@@ -30,6 +30,7 @@ class technicalOutput(TypedDict):
     watch_list: WatchList
     thinking: str
 
+
 class NewsItem(TypedDict):
     title: str
     published_at: str
@@ -65,6 +66,8 @@ class NewsOutput(TypedDict):
     what_to_watch: List[str]
     invalidation: str
     thinking: str
+
+
 
 
 class AgreementAnalysis(TypedDict):
@@ -104,27 +107,7 @@ class ReflectionOutput(TypedDict):
     thinking: str
 
 
-class RiskOutput(TypedDict):
-    approved: Literal['YES', 'NO']
-    position_size_percent: float
-    position_size_usd: float
-    max_loss_usd: float
-    entry_price: Optional[float]
-    stop_loss: Optional[float]
-    take_profit: Optional[float]
-    risk_reward_ratio: float
-    validation_details: Dict[str, bool]
-    warnings: List[str]
-    reasoning: str
-    # Portfolio context
-    total_balance: float
-    current_risk_percent: float
-    open_positions: int
-    # Institutional additions
-    kelly_multiplier: float
-    volatility_adjustment: float
-    correlation_penalty: float
-    final_size_calculation: Dict[str, float]
+
 
 
 class AgentSynthesis(TypedDict):
@@ -167,9 +150,7 @@ class AgentState(TypedDict, total=False):
     technical: Optional[technicalOutput]
     news: Optional[NewsOutput]
     reflection: Optional[ReflectionOutput]
-    risk: Optional[RiskOutput]
     trader: Optional[TraderOutput]
-    portfolio: Dict
 
 
 

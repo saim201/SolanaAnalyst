@@ -1,12 +1,13 @@
 from sqlalchemy import Column, Integer, Float, String, DateTime, Text, JSON, Index, ForeignKey
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database.config import Base
 
 
 class TechnicalAnalyst(Base):
     __tablename__ = 'technical_analyst'
 
-    id = Column(Integer, primary_key=True, index=True)    
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     recommendation = Column(String(20), nullable=False)  # BUY/SELL/HOLD
     confidence = Column(Float, nullable=False)
     confidence_breakdown = Column(JSON, nullable=True)
@@ -22,7 +23,7 @@ class TechnicalAnalyst(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
-        Index('idx_technical_created_at', 'created_at'),
+        Index('idx_technical_timestamp', 'timestamp'),
         Index('idx_technical_recommendation', 'recommendation'),
     )
 
@@ -30,7 +31,8 @@ class TechnicalAnalyst(Base):
 class NewsAnalyst(Base):
     __tablename__ = 'news_analyst'
 
-    id = Column(Integer, primary_key=True, index=True)    
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))  
     overall_sentiment = Column(Float, nullable=False)  
     sentiment_label = Column(String(50), nullable=True)
     confidence = Column(Float, nullable=False)
@@ -47,7 +49,7 @@ class NewsAnalyst(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
-        # Index('idx_news_timestamp', 'timestamp'),
+        Index('idx_news_timestamp', 'timestamp'),
         Index('idx_news_stance', 'stance'),
     )
 
@@ -57,6 +59,7 @@ class ReflectionAnalyst(Base):
     __tablename__ = 'reflection_analyst'
 
     id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))  
     recommendation = Column(String(20), nullable=False)
     confidence = Column(Float, nullable=False)
     agreement_analysis = Column(JSON, nullable=True)
@@ -69,7 +72,7 @@ class ReflectionAnalyst(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
-        Index('idx_reflection_created_at', 'created_at'),
+        Index('idx_reflection_timestamp', 'timestamp'),
         Index('idx_reflection_recommendation', 'recommendation'),
     )
 
@@ -80,7 +83,7 @@ class TraderAnalyst(Base):
     __tablename__ = 'trader_analyst'
 
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime, nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), nullable=False, index=True, default=lambda: datetime.now(timezone.utc))
     decision = Column(String(20), nullable=False, index=True)  # BUY/SELL/HOLD
     confidence = Column(Float, nullable=False)
     reasoning = Column(Text, nullable=False)

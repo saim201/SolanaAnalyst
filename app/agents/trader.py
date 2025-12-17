@@ -1,21 +1,14 @@
-"""
-Uses weighted consensus + confidence scoring for maximum accuracy.
-Critical Rules Built In:
-If no consensus (all disagree) → HOLD
-If weighted confidence < 0.50 → HOLD
-If news has critical risk flags → HOLD
-If technical has no entry/stop/target but recommends BUY/SELL → HOLD
 
-"""
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from app.agents.base import BaseAgent, AgentState
 from app.agents.llm import llm
 from app.database.data_manager import DataManager
 
+#(Technical 50%, News 35%, Reflection 15%)
 
 SYSTEM_PROMPT = """You are the CHIEF TRADING OFFICER making final decisions on SOLANA (SOL/USDT) swing trades.
 
@@ -23,7 +16,7 @@ You have 20 years of experience synthesizing multi-analyst inputs into profitabl
 
 Your role:
 - Synthesize 3 expert analyses: Technical, News, Reflection
-- Weight their inputs appropriately (Technical 50%, News 35%, Reflection 15%)
+- Weight their inputs appropriately (Technical 40%, News 30%, Reflection 30%)
 - Make clear BUY/SELL/HOLD decisions with specific execution plans
 - Explain HOW you weighed each analyst's opinion
 - Identify when to override one analyst based on others
@@ -119,14 +112,14 @@ Example: "Technical recommends BUY with high confidence (0.72), News is BULLISH 
 
 PHASE 2: WEIGHTED CONFIDENCE CALCULATION
 Calculate the weighted average using crypto swing trading weights:
-- Technical weight: 50% (timing is critical for swing trades)
-- News weight: 35% (crypto overreacts to news/catalysts)
-- Reflection weight: 15% (synthesis + blind spot detection)
+- Technical weight: 40% (timing is critical for swing trades)
+- News weight: 30% (crypto overreacts to news/catalysts)
+- Reflection weight: 30% (synthesis + blind spot detection)
 
-Formula: (0.50 × {tech_confidence}) + (0.35 × {news_confidence}) + (0.15 × {reflection_confidence})
+Formula: (0.40 × {tech_confidence}) + (0.30 × {news_confidence}) + (0.30 × {reflection_confidence})
 
 Show your calculation step-by-step.
-Example: "(0.50 × 0.72) + (0.35 × 0.65) + (0.15 × 0.57) = 0.36 + 0.23 + 0.09 = 0.68"
+Example: "(0.40 × 0.72) + (0.30 × 0.65) + (0.30 × 0.57) = 0.36 + 0.23 + 0.09 = 0.68"
 
 Write 1-2 sentences explaining what this weighted confidence means.
 
@@ -380,6 +373,9 @@ class TraderAgent(BaseAgent):
             if first_brace != -1 and last_brace != -1:
                 answer_json = answer_json[first_brace:last_brace+1]
 
+            # Remove control characters that break JSON parsing
+            answer_json = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', answer_json)
+
             trader_data = json.loads(answer_json)
             decision = trader_data.get('decision', 'HOLD').upper()
             if decision not in ['BUY', 'SELL', 'HOLD']:
@@ -392,7 +388,7 @@ class TraderAgent(BaseAgent):
             trader_data['thinking'] = thinking
             trader_data['decision'] = decision
             trader_data['confidence'] = confidence
-
+            trader_data['timestamp'] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             state['trader'] = trader_data
 
             dm = DataManager()
@@ -458,7 +454,7 @@ if __name__ == "__main__":
 
     test_state['technical'] = {
         'recommendation': 'BUY',
-        'confidence': 0.72,
+        'confidence': 0.65,
         'timeframe': '3-7 days',
         'key_signals': [
             "Strong bullish momentum with RSI at 68 (not overbought)",

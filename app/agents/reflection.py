@@ -1,11 +1,9 @@
-"""
-Reflection Agent - Cross-Analysis & Final Decision
-Single LLM call that synthesizes technical + news analysis
-"""
+
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 import json
 import re
+from datetime import datetime, timezone
 from app.agents.base import BaseAgent, AgentState
 from app.agents.llm import llm
 from app.database.data_manager import DataManager
@@ -298,9 +296,12 @@ class ReflectionAgent(BaseAgent):
             if first_brace != -1 and last_brace != -1:
                 answer_json = answer_json[first_brace:last_brace+1]
 
+            # Remove control characters that break JSON parsing
+            answer_json = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', answer_json)
+
             reflection_data = json.loads(answer_json)
             reflection_data['thinking'] = thinking
-
+            reflection_data['timestamp'] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             state['reflection'] = reflection_data
 
             dm = DataManager()

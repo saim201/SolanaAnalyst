@@ -4,6 +4,7 @@ import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 import json
 import re
+from datetime import datetime, timezone
 from app.agents.base import BaseAgent, AgentState
 from app.agents.llm import llm
 from app.agents.db_fetcher import DataQuery
@@ -572,24 +573,36 @@ class TechnicalAgent(BaseAgent):
                 else:
                     raise ValueError("No JSON found in response")
             
-            # AGGRESSIVE CLEANING
             answer_json = answer_json.strip()
-            # Remove markdown code fences
             answer_json = re.sub(r'^```json\s*', '', answer_json)
             answer_json = re.sub(r'\s*```$', '', answer_json)
-            # Ensure we only have the JSON object (first { to last })
             first_brace = answer_json.find('{')
             last_brace = answer_json.rfind('}')
             if first_brace != -1 and last_brace != -1:
                 answer_json = answer_json[first_brace:last_brace+1]
             
-            # CRITICAL: Replace smart quotes with regular quotes (common issue)
+            # Replace smart quotes with regular quotes (common issue)
             answer_json = answer_json.replace('"', '"').replace('"', '"')
             answer_json = answer_json.replace(''', "'").replace(''', "'")
 
-            analysis = json.loads(answer_json)
+            # Remove ALL control characters including newlines and tabs inside JSON strings
+            # This is more aggressive but necessary for LLM-generated JSON
+            answer_json = re.sub(r'[\x00-\x1F\x7F]', '', answer_json)
+
+            # Debug: Print sanitized JSON if it's still failing
+            try:
+                analysis = json.loads(answer_json)
+            except json.JSONDecodeError as json_err:
+                print(f"JSON Parse Error: {json_err}")
+                print(f"Sanitized JSON (first 500 chars): {answer_json[:500]}")
+                print(f"Sanitized JSON (around error position): {answer_json[max(0, json_err.pos-100):json_err.pos+100]}")
+                raise
+
+            timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
 
             state['technical'] = {
+                'timestamp': timestamp,
                 'recommendation': analysis.get('recommendation', 'HOLD'),
                 'confidence': float(analysis.get('confidence', 0.5)),
                 'timeframe': analysis.get('timeframe', '1-7 days'),
@@ -612,7 +625,10 @@ class TechnicalAgent(BaseAgent):
             print(f"⚠️  Technical agent parsing error: {e}")
             print(f"Response: {response[:300]}")
 
+            timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
             state['technical'] = {
+                'timestamp': timestamp,
                 'recommendation': 'HOLD',
                 'confidence': 0.0,
                 'reasoning': f"Analysis parsing error: {str(e)[:100]}",
@@ -621,9 +637,18 @@ class TechnicalAgent(BaseAgent):
                 'stop_loss': None,
                 'take_profit': None,
                 'timeframe': 'N/A',
-                'confidence_breakdown': [],  # Fixed: Added missing field
-                'thinking': ''  # Fixed: Added missing field
+                'confidence_breakdown': {},
+                'recommendation_summary': 'Error occurred during analysis',
+                'watch_list': {},
+                'thinking': ''
             }
+
+            # Save fallback data to database
+            try:
+                dm = DataManager()
+                dm.save_technical_analysis(data=state['technical'])
+            except Exception as save_err:
+                print(f"⚠️  Failed to save fallback technical analysis: {save_err}")
 
         return state
 
