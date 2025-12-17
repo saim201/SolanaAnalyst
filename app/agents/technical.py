@@ -556,7 +556,7 @@ class TechnicalAgent(BaseAgent):
             full_prompt,
             model=self.model,
             temperature=self.temperature,
-            max_tokens=2500
+            max_tokens=4096
         )
 
         try:
