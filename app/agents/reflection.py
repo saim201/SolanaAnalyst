@@ -296,7 +296,6 @@ class ReflectionAgent(BaseAgent):
             if first_brace != -1 and last_brace != -1:
                 answer_json = answer_json[first_brace:last_brace+1]
 
-            # Remove control characters that break JSON parsing
             answer_json = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', answer_json)
 
             reflection_data = json.loads(answer_json)
@@ -350,7 +349,6 @@ class ReflectionAgent(BaseAgent):
 
 
 if __name__ == "__main__":
-    # Test with sample state
     agent = ReflectionAgent()
     test_state = AgentState({
         'technical': {

@@ -107,26 +107,16 @@ class SolanaOnchainFetcher:
         # Estimate metrics
         metrics = self._estimate_metrics_from_performance(performance_samples)
 
-        # Get current timestamp
         current_time = datetime.now()
-
-        # Since Helius free tier doesn't provide historical DAS (Digital Asset Standard) APIs,
-        # we'll use the performance samples to estimate current values
-        # For production, you'd want to either:
-        # 1. Use paid Helius tier with DAS APIs
-        # 2. Store historical data in your own DB over time
-        # 3. Use alternative APIs like Solscan or SolanaFM
 
         current_tps = metrics['transactions_per_second']
         current_daily_txs = metrics['total_transactions_estimate']
 
-        # Estimate historical values (this is placeholder logic - in production you'd store real historical data)
-        # For now, we'll use slight variations to simulate historical data
+  
         tx_24h_ago = int(current_daily_txs * 0.98)  # Assume 2% growth in 24h
         tx_7d_ago = int(current_daily_txs * 0.92)   # Assume 8% growth in 7d
         tx_30d_ago = int(current_daily_txs * 0.85)  # Assume 15% growth in 30d
 
-        # Calculate percentage changes
         change_24h = ((current_daily_txs - tx_24h_ago) / tx_24h_ago * 100) if tx_24h_ago > 0 else 0.0
         change_7d = ((current_daily_txs - tx_7d_ago) / tx_7d_ago * 100) if tx_7d_ago > 0 else 0.0
         change_30d = ((current_daily_txs - tx_30d_ago) / tx_30d_ago * 100) if tx_30d_ago > 0 else 0.0
@@ -258,7 +248,6 @@ class SolanaOnchainFetcher:
 
 
 def main():
-    """Test the fetcher"""
     print("=" * 80)
     print("Testing Solana On-Chain Data Fetcher (Helius)")
     print("=" * 80)

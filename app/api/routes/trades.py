@@ -1,6 +1,4 @@
-"""
-Trade history and decision endpoints.
-"""
+
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
 
@@ -47,7 +45,6 @@ def get_last_trade_decision():
 def get_trades_history(limit: int = 10):
     db = None
     try:
-        # Validate limit parameter
         limit = min(max(limit, 1), 100)  # Ensure 1-100
         
         db = get_db_session()

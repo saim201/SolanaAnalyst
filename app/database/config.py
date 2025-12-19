@@ -1,5 +1,4 @@
 import os
-import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
@@ -12,9 +11,7 @@ if env_path.exists():
 else:
     load_dotenv()
 
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 DATABASE_URL = os.getenv('DATABASE_URL')
-SOLSCAN_API_KEY = os.getenv('SOLSCAN_API_KEY')
 
 # Fallback to SQLite for testing if DATABASE_URL not set
 if not DATABASE_URL:

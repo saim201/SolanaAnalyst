@@ -3,8 +3,7 @@ import os
 import re
 import json
 
-# Add backend directory to path for direct execution
-# Go up 4 levels: fetchers -> data -> app -> backend
+
 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)

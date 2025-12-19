@@ -193,7 +193,6 @@ class NewsAgent(BaseAgent):
 
         articles_count = len(news_data)
 
-        # Format articles for prompt
         if articles_count > 0:
             articles_text = "\n\n".join([
                 f"[{i+1}] {article['title']}\n"
@@ -257,8 +256,6 @@ class NewsAgent(BaseAgent):
                 answer_json = response
 
             answer_json = re.sub(r'```json\s*|\s*```', '', answer_json).strip()
-
-            # Remove control characters that break JSON parsing
             answer_json = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', answer_json)
 
             news_data = json.loads(answer_json)

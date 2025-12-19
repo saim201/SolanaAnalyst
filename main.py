@@ -5,7 +5,6 @@ import uvicorn
 from app.api import create_app
 from app.config import settings
 
-# Setup logging
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    logger.info("Starting Solana Trading Agent API...")
+    logger.info("Starting API...")
     logger.info(f"API Host: {settings.API_HOST}")
     logger.info(f"API Port: {settings.API_PORT}")
     logger.info(f"Debug Mode: {settings.DEBUG}")

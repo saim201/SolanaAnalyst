@@ -7,7 +7,7 @@ from typing import Optional
 
 class BinanceFetcher:
     BASE_URL = "https://api.binance.com/api/v3"
-    SYMBOL = "SOLUSDT"  # SOL/USDT pair
+    SYMBOL = "SOLUSDT"  
     
     def __init__(self):
         self.session = requests.Session()
@@ -34,7 +34,6 @@ class BinanceFetcher:
 
         try:
             ticker = self._make_request('ticker/24hr', params)
-            print(f"--- ticker data saim : \n {ticker}")
             if not ticker:
                 print("No ticker data received")
                 return pd.DataFrame()
@@ -51,7 +50,6 @@ class BinanceFetcher:
             }
 
             df = pd.DataFrame([record])
-            print(f"---- ticker 24h Data:  \n {df}")
             return df
         except Exception as e:
             print(f"Error parsing ticker data: {str(e)}")

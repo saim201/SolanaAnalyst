@@ -90,7 +90,6 @@ class RSSNewsFetcher:
 
     def _fetch_rss_feed(self, url: str, source_name: str) -> List[Dict]:
         try:
-            print(f"Fetching {source_name} RSS feed...")
             feed = feedparser.parse(url, agent=self.USER_AGENT)
             if not feed.entries:
                 print(f"  No entries found in {source_name}")
@@ -242,7 +241,6 @@ class RSSNewsFetcher:
 
                     if created_at:
                         created_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                        # Normalize to naive UTC for comparison
                         if created_dt.tzinfo is not None:
                             created_dt = created_dt.replace(tzinfo=None)
                     else:
@@ -301,7 +299,6 @@ class RSSNewsFetcher:
                 if pub_date >= cutoff_date:
                     filtered_articles.append(article)
             except Exception:
-                # If date parsing fails, include the article anyway
                 filtered_articles.append(article)
 
         deduplicated = self._deduplicate_articles(filtered_articles)
@@ -317,20 +314,17 @@ class RSSNewsFetcher:
             except Exception:
                 article['_sort_date'] = datetime.min
 
-        # Sort by priority (CRITICAL > HIGH > MEDIUM) then by date (newest first)
         priority_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2}
         deduplicated.sort(key=lambda x: (
             priority_order.get(x['priority'], 2),
             -x['_sort_date'].timestamp()
         ))
 
-        # Remove sorting helper
         for article in deduplicated:
             article.pop('_sort_date', None)
 
         print(f"\n✅ Total: {len(deduplicated)} articles from all sources")
 
-        # Show priority breakdown
         priority_counts = {}
         for article in deduplicated:
             priority = article['priority']
@@ -372,22 +366,6 @@ def main():
 
     fetcher = RSSNewsFetcher()
 
-    # articles = fetcher.fetch_all_sources(days_back=7)
-
-    # if articles:
-    #     print("\n" + "=" * 80)
-    #     print(f"total {len(articles)} articles)")
-    #     print("=" * 80)
-
-    #     for i, article in enumerate(articles, 1):
-    #         priority_emoji = {'CRITICAL': '🔴', 'HIGH': '🟡', 'MEDIUM': '🟢'}.get(article.get('priority', 'MEDIUM'), '⚪')
-    #         print(f"\n{i}. {priority_emoji} [{article['source']}] {article['title']}")
-    #         print(f"   Priority: {article.get('priority', 'MEDIUM')}")
-    #         print(f"   URL: {article['url']}")
-    #         print(f"   Date: {article['published_at'][:10]}")
-    #         print(f"   Preview: {article['content'][:100]}...")
-    # else:
-    #     print("\n❌ No articles fetched")
 
     fetcher.fetch_and_save_to_db()
 

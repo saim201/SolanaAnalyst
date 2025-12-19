@@ -234,7 +234,6 @@ class IndicatorsCalculator:
         highs = recent['high'].values
         lows = recent['low'].values
         
-        # clusters of highs and lows
         for high in np.percentile(highs, [75, 90, 100]):
             all_levels.append(float(high))
         for low in np.percentile(lows, [0, 10, 25]):
@@ -243,7 +242,6 @@ class IndicatorsCalculator:
         support = sorted([level for level in all_levels if level < current_price], reverse=True)[:3]
         resistance = sorted([level for level in all_levels if level > current_price])[:3]
         
-        # Pad with empty lists if needed
         while len(support) < 3:
             support.append(None)
         while len(resistance) < 3:

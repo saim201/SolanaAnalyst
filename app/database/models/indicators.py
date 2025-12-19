@@ -31,7 +31,6 @@ class IndicatorsModel(Base):
     volume_current = Column(Float, nullable=True)
     volume_ratio = Column(Float, nullable=True)
 
-    # Support/Resistance 
     support1 = Column(Float, nullable=True)
     support1_percent = Column(Float, nullable=True)
     support2 = Column(Float, nullable=True)
@@ -42,13 +41,11 @@ class IndicatorsModel(Base):
     resistance2 = Column(Float, nullable=True)
     resistance2_percent = Column(Float, nullable=True)
 
-    # Fibonacci Retracement 
     fib_level_382 = Column(Float, nullable=True)
     fib_level_618 = Column(Float, nullable=True)
 
-    pivot_weekly = Column(Float, nullable=True)  # Weekly pivot for bias (not daily)
+    pivot_weekly = Column(Float, nullable=True) 
 
-    # 24h Ticker Indicators
     momentum_24h = Column(Float, nullable=True)
     range_position_24h = Column(Float, nullable=True)
     volume_surge_24h = Column(Float, nullable=True)

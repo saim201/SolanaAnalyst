@@ -1,6 +1,6 @@
-"""
-Pydantic schemas for API request/response validation.
-"""
+
+# Pydantic schemas for API request/response validation.
+
 from pydantic import BaseModel
 from typing import List, Dict
 

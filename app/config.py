@@ -1,31 +1,13 @@
 
 from pydantic_settings import BaseSettings
-from typing import Optional
 import os
 
 
 class Settings(BaseSettings):
 
-    # API Configuration
     API_HOST: str = "0.0.0.0"
     API_PORT: int = int(os.getenv("PORT", "8000"))  # Render uses PORT env variable
     DEBUG: bool = False
-
-    # Database
-    DATABASE_URL: str = "postgresql://postgres:1122@localhost:5432/CryptoAnalyst"
-
-    # API Keys
-    ANTHROPIC_API_KEY: str
-    COINGECKO_API_KEY: Optional[str] = None
-    SOLSCAN_API_KEY: Optional[str] = None
-    HELIUS_API_KEY: Optional[str] = None
-
-    # Scheduler
-    SCHEDULER_ENABLED: bool = True
-    SCHEDULER_HOUR: int = 0
-    SCHEDULER_MINUTE: int = 0
-
-    # Logging
     LOG_LEVEL: str = "INFO"
 
     class Config:
@@ -34,5 +16,4 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 
-# Load settings
 settings = Settings()

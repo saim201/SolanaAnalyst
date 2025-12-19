@@ -1,5 +1,4 @@
 
-# Technical Analysis Agent - Swing Trading (1-5 day holds)
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 import json
@@ -585,15 +584,10 @@ class TechnicalAgent(BaseAgent):
             if first_brace != -1 and last_brace != -1:
                 answer_json = answer_json[first_brace:last_brace+1]
             
-            # Replace smart quotes with regular quotes (common issue)
             answer_json = answer_json.replace('"', '"').replace('"', '"')
             answer_json = answer_json.replace(''', "'").replace(''', "'")
-
-            # Remove ALL control characters including newlines and tabs inside JSON strings
-            # This is more aggressive but necessary for LLM-generated JSON
             answer_json = re.sub(r'[\x00-\x1F\x7F]', '', answer_json)
 
-            # Debug: Print sanitized JSON if it's still failing
             try:
                 analysis = json.loads(answer_json)
             except json.JSONDecodeError as json_err:
