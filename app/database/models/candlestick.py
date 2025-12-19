@@ -1,5 +1,6 @@
 
 from sqlalchemy import Column, Integer, Float, DateTime, BigInteger, Index
+from sqlalchemy.sql import func
 from app.database.config import Base
 
 
@@ -8,7 +9,7 @@ class CandlestickModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     open_time = Column(DateTime, nullable=False, unique=True, index=True)
-    close_time = Column(DateTime, nullable=False, unique=True, index=True)
+    close_time = Column(DateTime, nullable=False, index=True)
     open = Column(Float, nullable=False)
     high = Column(Float, nullable=False)
     low = Column(Float, nullable=False)
@@ -18,6 +19,7 @@ class CandlestickModel(Base):
     quote_volume = Column(BigInteger, nullable=False)
     taker_buy_base = Column(BigInteger, nullable=False)
     taker_buy_quote = Column(BigInteger, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     __table_args__ = (
         Index('idx_candlestick_opentime', 'open_time'),
@@ -29,7 +31,7 @@ class CandlestickIntradayModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     open_time = Column(DateTime, nullable=False, unique=True, index=True)
-    close_time = Column(DateTime, nullable=False, unique=True, index=True)
+    close_time = Column(DateTime, nullable=False, index=True)
     open = Column(Float, nullable=False)
     high = Column(Float, nullable=False)
     low = Column(Float, nullable=False)
@@ -39,6 +41,7 @@ class CandlestickIntradayModel(Base):
     quote_volume = Column(BigInteger, nullable=False)
     taker_buy_base = Column(BigInteger, nullable=False)
     taker_buy_quote = Column(BigInteger, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     __table_args__ = (
         Index('idx_candlestick_intraday_opentime', 'open_time'),

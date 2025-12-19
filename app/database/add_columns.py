@@ -7,13 +7,11 @@ from .config import engine
 from sqlalchemy import text
 
 
-def add_columns():    
+def add_columns():
     # (table_name, column_name, column_type)
     columns_to_add = [
-        ("technical_analyst", "timestamp", "TIMESTAMP WITH TIME ZONE"),
-        ("news_analyst", "timestamp", "TIMESTAMP WITH TIME ZONE"),
-        ("reflection_analyst", "timestamp", "TIMESTAMP WITH TIME ZONE"),
-        ("trader_analyst", "timestamp", "TIMESTAMP WITH TIME ZONE"),
+        ("candlestick_daily", "created_at", "TIMESTAMP DEFAULT NOW() NOT NULL"),
+        ("candlestick_intraday", "created_at", "TIMESTAMP DEFAULT NOW() NOT NULL"),
 
     ]
     

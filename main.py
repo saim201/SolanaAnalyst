@@ -1,9 +1,17 @@
 
 import sys
+import logging
 import uvicorn
 from app.api import create_app
 from app.config import settings
-from app.utils.logger import logger
+
+# Setup logging
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 
 def main():
