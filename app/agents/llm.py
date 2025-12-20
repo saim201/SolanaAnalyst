@@ -1,10 +1,10 @@
 import sys
 import os
 from anthropic import Anthropic
-from app.database.config import ANTHROPIC_API_KEY
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 from typing import Literal
 
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")  # ✅ FIXED
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
 Model = Literal["claude-sonnet-4-5-20250929", "claude-3-5-haiku-20241022"]
 

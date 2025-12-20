@@ -26,3 +26,6 @@ psycopg2-binary
 
 # Background Scheduling
 apscheduler
+
+# Lambda adapter
+mangum
