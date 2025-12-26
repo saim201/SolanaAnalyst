@@ -15,7 +15,16 @@ class DataManager:
     def __init__(self):
         self.db = get_db_session()
 
-    def save_tikcer_db(self, df: pd.DataFrame) -> int:
+    def __enter__(self):
+        """Context manager entry - returns self for use in 'with' statements"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - ensures db session is closed"""
+        self.close()
+        return False  # Don't suppress exceptions
+
+    def save_ticker_db(self, df: pd.DataFrame) -> int:
         records = []
         for _, row in df.iterrows():
             record = {
@@ -178,10 +187,6 @@ class DataManager:
         return len(records)
 
 
-        result = self.db.query(NewsModel).order_by(NewsModel.published_at.desc()).first()
-        return result.published_at if result else None
-
-
     def save_indicators(self, timestamp: datetime, indicators: Dict) -> int:
         print(f"Saving indicators for {timestamp}...")
 
@@ -199,9 +204,18 @@ class DataManager:
             'bb_upper': indicators.get('bb_upper'),
             'bb_lower': indicators.get('bb_lower'),
             'atr': indicators.get('atr'),
+            'atr_percent': indicators.get('atr_percent'),
             'volume_ma20': indicators.get('volume_ma20'),
             'volume_current': indicators.get('volume_current'),
             'volume_ratio': indicators.get('volume_ratio'),
+            'volume_classification': indicators.get('volume_classification'),
+            'volume_trading_allowed': str(indicators.get('volume_trading_allowed', True)),
+            'volume_confidence_multiplier': indicators.get('volume_confidence_multiplier'),
+            'days_since_volume_spike': indicators.get('days_since_volume_spike'),
+            'kijun_sen': indicators.get('kijun_sen'),
+            'high_14d': indicators.get('high_14d'),
+            'low_14d': indicators.get('low_14d'),
+            'stoch_rsi': indicators.get('stoch_rsi'),
             'support1': indicators.get('support1'),
             'support1_percent': indicators.get('support1_percent'),
             'support2': indicators.get('support2'),
@@ -229,14 +243,23 @@ class DataManager:
                 'macd_signal': stmt.excluded.macd_signal,
                 'macd_histogram': stmt.excluded.macd_histogram,
                 'rsi14': stmt.excluded.rsi14,
-                'rsi_divergence_type':stmt.excluded.rsi_divergence_type ,
+                'rsi_divergence_type': stmt.excluded.rsi_divergence_type,
                 'rsi_divergence_strength': stmt.excluded.rsi_divergence_strength,
                 'bb_upper': stmt.excluded.bb_upper,
                 'bb_lower': stmt.excluded.bb_lower,
                 'atr': stmt.excluded.atr,
+                'atr_percent': stmt.excluded.atr_percent,
                 'volume_ma20': stmt.excluded.volume_ma20,
                 'volume_current': stmt.excluded.volume_current,
                 'volume_ratio': stmt.excluded.volume_ratio,
+                'volume_classification': stmt.excluded.volume_classification,
+                'volume_trading_allowed': stmt.excluded.volume_trading_allowed,
+                'volume_confidence_multiplier': stmt.excluded.volume_confidence_multiplier,
+                'days_since_volume_spike': stmt.excluded.days_since_volume_spike,
+                'kijun_sen': stmt.excluded.kijun_sen,
+                'high_14d': stmt.excluded.high_14d,
+                'low_14d': stmt.excluded.low_14d,
+                'stoch_rsi': stmt.excluded.stoch_rsi,
                 'support1': stmt.excluded.support1,
                 'support1_percent': stmt.excluded.support1_percent,
                 'support2': stmt.excluded.support2,

@@ -391,12 +391,11 @@ class TraderAgent(BaseAgent):
             trader_data['timestamp'] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             state['trader'] = trader_data
 
-            dm = DataManager()
-            dm.save_trader_decision(
-                timestamp=datetime.now(),
-                data=trader_data
-            )
-            dm.close()
+            with DataManager() as dm:
+                dm.save_trader_decision(
+                    timestamp=datetime.now(),
+                    data=trader_data
+                )
 
             print(f" Trader agent completed: {decision} (confidence: {confidence:.0%})")
 

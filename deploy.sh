@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-AWS_REGION="us-east-1"
+AWS_REGION="eu-west-2"
 AWS_ACCOUNT_ID="449272628852"
 ECR_REPO_NAME="sol-analyst-backend"
 # LAMBDA_FUNCTION_NAME="sol-analyst-api"

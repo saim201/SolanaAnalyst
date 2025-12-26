@@ -27,8 +27,8 @@ class RefreshManager:
         if binance_success:
             success_count += 1
 
-        tickle_success = RefreshManager._fetch_ticker_data()
-        if tickle_success:
+        ticker_success = RefreshManager._fetch_ticker_data()
+        if ticker_success:
             success_count += 1
 
         news_success = RefreshManager._fetch_news_data()
@@ -52,7 +52,7 @@ class RefreshManager:
                 return True
             return False
         except Exception as e:
-            print(f"Tickle 24h fetch error: {str(e)}")
+            print(f"Ticker 24h fetch error: {str(e)}")
             return False
 
 
@@ -134,11 +134,13 @@ class RefreshManager:
 
             combined_indicators = {**daily_indicators, **ticker_indicators}
 
-            manager = DataManager()
-            # Use the latest candle's timestamp instead of current time to avoid duplicates
-            indicator_timestamp = daily_candles[-1].open_time if daily_candles else datetime.now()
-            manager.save_indicators(indicator_timestamp, combined_indicators)
-            manager.close()
+            # Use context manager to ensure db session is properly closed
+            with DataManager() as manager:
+                # Use current time to ensure each refresh creates a new indicator snapshot
+                # This allows agents to see real-time updates from ticker-based metrics
+                # (momentum_24h, volume_surge_24h, range_position_24h)
+                indicator_timestamp = datetime.now()
+                manager.save_indicators(indicator_timestamp, combined_indicators)
             return True
 
         except Exception as e:

@@ -188,8 +188,8 @@ class NewsAgent(BaseAgent):
         )
 
     def execute(self, state: AgentState) -> AgentState:
-        dq = DataQuery()
-        news_data = dq.get_news_data(days=10)
+        with DataQuery() as dq:
+            news_data = dq.get_news_data(days=10)
 
         articles_count = len(news_data)
 
@@ -265,8 +265,8 @@ class NewsAgent(BaseAgent):
             news_data['timestamp'] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             state['news'] = news_data
 
-            dm = DataManager()
-            dm.save_news_analysis(news_data)
+            with DataManager() as dm:
+                dm.save_news_analysis(news_data)
 
         except (json.JSONDecodeError, ValueError) as e:
             print(f"⚠️  News agent parsing error: {e}")

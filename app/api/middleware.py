@@ -1,20 +1,23 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
 
 
 def setup_middleware(app: FastAPI):
-    
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "http://localhost:5174",
-            "https://solscanapp.netlify.app",
-            "https://tradingmate.netlify.app",
-        ],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # Only add CORS middleware for local development
+    # AWS Lambda handles CORS through API Gateway configuration
+    if not settings.IS_LAMBDA:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://localhost:5174",
+                "https://solscanapp.netlify.app",
+                "https://tradingmate.netlify.app",
+            ],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )

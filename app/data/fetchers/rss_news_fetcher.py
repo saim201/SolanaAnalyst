@@ -345,9 +345,8 @@ class RSSNewsFetcher:
             articles = self.fetch_all_sources(days_back=days)
 
             if articles:
-                manager = DataManager()
-                manager.save_news_data(articles)
-                manager.close()
+                with DataManager() as manager:
+                    manager.save_news_data(articles)
                 print(f" Saved {len(articles)} articles to database")
                 return True
             else:

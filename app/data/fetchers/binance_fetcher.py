@@ -69,13 +69,12 @@ class BinanceFetcher:
                 print("Failed ticker 24h fetching")
                 return False
 
-            manager = DataManager()
-            manager.save_tikcer_db(df)
-            manager.close()
+            with DataManager() as manager:
+                manager.save_ticker_db(df)
             return True
 
         except Exception as e:
-            print(f"Error saving tickle data to DB: {str(e)}")
+            print(f"Error saving ticker data to DB: {str(e)}")
             return False
 
 
@@ -135,12 +134,11 @@ class BinanceFetcher:
                 print("Failed klines fetching")
                 return False
 
-            manager = DataManager()
-            if limit == 6:
-                manager.save_candlestickIntraday_db(df)
-            else:
-                manager.save_candlestick_db(df)
-            manager.close()
+            with DataManager() as manager:
+                if limit == 6:
+                    manager.save_candlestickIntraday_db(df)
+                else:
+                    manager.save_candlestick_db(df)
             return True
 
         except Exception as e:

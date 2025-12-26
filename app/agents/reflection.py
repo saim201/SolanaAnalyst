@@ -303,8 +303,8 @@ class ReflectionAgent(BaseAgent):
             reflection_data['timestamp'] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             state['reflection'] = reflection_data
 
-            dm = DataManager()
-            dm.save_reflection_analysis(data=reflection_data)
+            with DataManager() as dm:
+                dm.save_reflection_analysis(data=reflection_data)
 
             print("✅ Reflection agent completed successfully")
 

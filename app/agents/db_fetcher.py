@@ -139,30 +139,36 @@ class DataQuery:
 
         return {
             "timestamp": indicators.timestamp,
-            "ema20": indicators.ema20,    # for major trend context
+            "ema20": indicators.ema20,
             "ema50": indicators.ema50,
-            "ema200": indicators.ema200,  # Shows bull/bear market bias
+            "ema200": indicators.ema200,
 
             "macd_line": indicators.macd_line,
             "macd_signal": indicators.macd_signal,
             "macd_histogram": indicators.macd_histogram,
 
-            # Momentum (ADDED: divergence)
             "rsi14": indicators.rsi14,
             "rsi_divergence_type": indicators.rsi_divergence_type,
             "rsi_divergence_strength": indicators.rsi_divergence_strength,
+            "stoch_rsi": indicators.stoch_rsi,
 
-            # Volatility 
             "bb_upper": indicators.bb_upper,
             "bb_lower": indicators.bb_lower,
             "atr": indicators.atr,
+            "atr_percent": indicators.atr_percent,
 
-            # Volume
             "volume_ma20": indicators.volume_ma20,
             "volume_current": indicators.volume_current,
             "volume_ratio": indicators.volume_ratio,
+            "volume_classification": indicators.volume_classification,
+            "volume_trading_allowed": indicators.volume_trading_allowed == 'True',
+            "volume_confidence_multiplier": indicators.volume_confidence_multiplier,
+            "days_since_volume_spike": indicators.days_since_volume_spike,
 
-            # Support/Resistance 
+            "kijun_sen": indicators.kijun_sen,
+            "high_14d": indicators.high_14d,
+            "low_14d": indicators.low_14d,
+
             "support1": indicators.support1,
             "support1_percent": indicators.support1_percent,
             "support2": indicators.support2,
@@ -172,14 +178,11 @@ class DataQuery:
             "resistance2": indicators.resistance2,
             "resistance2_percent": indicators.resistance2_percent,
 
-            # Fibonacci 
             "fib_level_382": indicators.fib_level_382,
             "fib_level_618": indicators.fib_level_618,
 
-            # Pivot (MODIFIED: Weekly pivot only, not daily)
-            "pivot_weekly": indicators.pivot_weekly,  # Market bias indicator
+            "pivot_weekly": indicators.pivot_weekly,
 
-            # 24h metrics
             "momentum_24h": indicators.momentum_24h,
             "range_position_24h": indicators.range_position_24h,
             "volume_surge_24h": indicators.volume_surge_24h,

@@ -32,6 +32,7 @@ class HealthResponse(BaseModel):
     status: str
     timestamp: str
     service: str
+    checks: Dict = {}
 
 
 class StatusResponse(BaseModel):

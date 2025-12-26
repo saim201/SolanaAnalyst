@@ -296,8 +296,7 @@ class TechnicalAgent(BaseAgent):
 
     @staticmethod
     def format_daily_ohlc(candles: list) -> str:
-        # Format last 14 days of OHLC data with volume and buying pressure
-        if not candles or len(candles) == 0:
+        if not candles:
             return "No data available"
 
         lines = []
@@ -308,20 +307,14 @@ class TechnicalAgent(BaseAgent):
             l = candle.get('low', 0)
             c = candle.get('close', 0)
             volume = candle.get('volume', 0)
-            num_trades = candle.get('num_trades', 0)
             taker_buy_base = candle.get('taker_buy_base', 0)
 
             change = ((c - o) / o * 100) if o > 0 else 0
-
-            # Cal bying pressure
             buy_ratio = (taker_buy_base / volume * 100) if volume > 0 else 50.0
-
-            # Classify volume intensity by num_trades (smart money indicator)
-            trade_intensity = "inst" if (volume > 5000 and num_trades < 8000) else "retail"
 
             lines.append(
                 f"  {date}: O=${o:.2f} H=${h:.2f} L=${l:.2f} C=${c:.2f} ({change:+.1f}%) | "
-                f"Vol={volume:,.0f} Trades={num_trades:,} BuyPressure={buy_ratio:.1f}% [{trade_intensity}]"
+                f"Vol={volume:,.0f} BuyPressure={buy_ratio:.1f}%"
             )
 
         return "\n".join(lines)
@@ -330,14 +323,15 @@ class TechnicalAgent(BaseAgent):
 
     @staticmethod
     def format_4h_candles(candles: list) -> str:
-        if not candles or len(candles) == 0:
+        if not candles:
             return "No data available"
 
         lines = []
         for candle in candles[-12:]:
             time = candle.get('open_time', 'N/A')
+            o = candle.get('open', 0)
             c = candle.get('close', 0)
-            change = ((candle.get('close', 0) - candle.get('open', 0)) / candle.get('open', 1) * 100)
+            change = ((c - o) / o * 100) if o > 0 else 0
             pattern = TechnicalAgent.detect_candle_pattern(candle)
 
             pattern_str = f" [{pattern}]" if pattern != "NONE" else ""
@@ -349,22 +343,18 @@ class TechnicalAgent(BaseAgent):
 
     @staticmethod
     def format_volume_progression(candles: list) -> str:
-        # Show volume trend and buying pressure over last 14 days
         if not candles or len(candles) < 14:
             return "Insufficient data"
 
         recent = candles[-14:]
         volumes = [c.get('volume', 0) for c in recent]
-        avg_volume = sum(volumes) / len(volumes)
 
-        # volume trend
         first_half_avg = sum(volumes[:7]) / 7
         second_half_avg = sum(volumes[7:]) / 7
         volume_trend = "INCREASING" if second_half_avg > first_half_avg * 1.1 else "DECREASING" if second_half_avg < first_half_avg * 0.9 else "STABLE"
 
-        # Calculate buying pressure trend (first 7d vs last 7d)
-        first_half_buy_pressure = []
-        second_half_buy_pressure = []
+        first_half_buy = []
+        second_half_buy = []
 
         for i, candle in enumerate(recent):
             volume = candle.get('volume', 0)
@@ -372,56 +362,45 @@ class TechnicalAgent(BaseAgent):
             buy_ratio = (taker_buy / volume * 100) if volume > 0 else 50.0
 
             if i < 7:
-                first_half_buy_pressure.append(buy_ratio)
+                first_half_buy.append(buy_ratio)
             else:
-                second_half_buy_pressure.append(buy_ratio)
+                second_half_buy.append(buy_ratio)
 
-        avg_buy_pressure_first = sum(first_half_buy_pressure) / len(first_half_buy_pressure) if first_half_buy_pressure else 50.0
-        avg_buy_pressure_second = sum(second_half_buy_pressure) / len(second_half_buy_pressure) if second_half_buy_pressure else 50.0
+        avg_buy_first = sum(first_half_buy) / 7
+        avg_buy_second = sum(second_half_buy) / 7
+        buy_trend = "STRENGTHENING" if avg_buy_second > avg_buy_first + 3 else "WEAKENING" if avg_buy_second < avg_buy_first - 3 else "STABLE"
 
-        buy_pressure_trend = "STRENGTHENING" if avg_buy_pressure_second > avg_buy_pressure_first + 3 else "WEAKENING" if avg_buy_pressure_second < avg_buy_pressure_first - 3 else "STABLE"
-
-        # Current buying pressure
-        latest_candle = recent[-1]
-        latest_volume = latest_candle.get('volume', 0)
-        latest_taker_buy = latest_candle.get('taker_buy_base', 0)
-        latest_buy_pressure = (latest_taker_buy / latest_volume * 100) if latest_volume > 0 else 50.0
+        latest = recent[-1]
+        latest_buy = (latest.get('taker_buy_base', 0) / latest.get('volume', 1) * 100)
 
         return (
             f"  Volume Trend: {volume_trend}\n"
-            f"  14d Avg Volume: {avg_volume:,.0f}\n"
             f"  Recent 7d Avg: {second_half_avg:,.0f} ({((second_half_avg/first_half_avg - 1) * 100):+.1f}% vs prior 7d)\n"
-            f"  \n"
-            f"  Buying Pressure Trend: {buy_pressure_trend}\n"
-            f"  First 7d Avg Buy Pressure: {avg_buy_pressure_first:.1f}%\n"
-            f"  Recent 7d Avg Buy Pressure: {avg_buy_pressure_second:.1f}%\n"
-            f"  Latest Buy Pressure: {latest_buy_pressure:.1f}% (>50% = buyers aggressive)"
+            f"  Buying Pressure Trend: {buy_trend}\n"
+            f"  Recent 7d Avg: {avg_buy_second:.1f}% (prior 7d: {avg_buy_first:.1f}%)\n"
+            f"  Latest: {latest_buy:.1f}% (>50% = buyers control)"
         )
 
 
 
     @staticmethod
     def detect_patterns_at_levels(candles: list, support: float, resistance: float) -> str:
-        # Detect patterns forming at key support/resistance levels
         if not candles or len(candles) < 2:
             return "Insufficient data"
 
         patterns = []
-        recent = candles[-5:]  # Last 5 candles
+        recent = candles[-5:]
 
-        for i, candle in enumerate(recent):
+        for candle in recent:
             low = candle.get('low', 0)
             high = candle.get('high', 0)
-            close = candle.get('close', 0)
 
-            # Check if testing support
-            if support and abs(low - support) / support < 0.02:  # Within 2%
+            if support and abs(low - support) / support < 0.02:
                 pattern = TechnicalAgent.detect_candle_pattern(candle)
                 if pattern != "NONE":
                     patterns.append(f"  {pattern} at support ${support:.2f}")
 
-            # Check if testing resistance
-            if resistance and abs(high - resistance) / resistance < 0.02:  # Within 2%
+            if resistance and abs(high - resistance) / resistance < 0.02:
                 pattern = TechnicalAgent.detect_candle_pattern(candle)
                 if pattern != "NONE":
                     patterns.append(f"  {pattern} at resistance ${resistance:.2f}")
@@ -431,18 +410,17 @@ class TechnicalAgent(BaseAgent):
 
 
     def execute(self, state: AgentState) -> AgentState:
-        dq = DataQuery()
+        with DataQuery() as dq:
+            ticker = dq.get_ticker_data()
+            if not ticker:
+                raise ValueError("No ticker data available")
 
-        ticker = dq.get_ticker_data()
-        if not ticker:
-            raise ValueError("No ticker data available")
+            indicators_data = dq.get_indicators_data()
+            if not indicators_data:
+                raise ValueError("No indicators data available")
 
-        indicators_data = dq.get_indicators_data()
-        if not indicators_data:
-            raise ValueError("No indicators data available")
-
-        daily_candles = dq.get_candlestick_data(days=14)  # Last 14 days
-        intraday_4h = dq.get_intraday_candles(limit=12)  # Last 48h of 4h candles
+            daily_candles = dq.get_candlestick_data(days=14)  # Last 14 days
+            intraday_4h = dq.get_intraday_candles(limit=12)  # Last 48h of 4h candles
 
         current_price = float(ticker.get('lastPrice', 0))
         change_24h = float(ticker.get('priceChangePercent', 0))
@@ -615,8 +593,8 @@ class TechnicalAgent(BaseAgent):
                 'thinking': thinking if thinking else ''
             }
 
-            dm = DataManager()
-            dm.save_technical_analysis(data=state['technical'])
+            with DataManager() as dm:
+                dm.save_technical_analysis(data=state['technical'])
 
 
         except (json.JSONDecodeError, ValueError) as e:
@@ -643,8 +621,8 @@ class TechnicalAgent(BaseAgent):
 
             # Save fallback data to database
             try:
-                dm = DataManager()
-                dm.save_technical_analysis(data=state['technical'])
+                with DataManager() as dm:
+                    dm.save_technical_analysis(data=state['technical'])
             except Exception as save_err:
                 print(f"⚠️  Failed to save fallback technical analysis: {save_err}")
 

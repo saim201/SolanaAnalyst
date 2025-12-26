@@ -10,10 +10,12 @@ class SolanaOnchainFetcher:
         if not self.api_key:
             print("Warning: HELIUS_API_KEY not found in environment variables")
 
-        self.base_url = f"https://mainnet.helius-rpc.com/?api-key={self.api_key}"
+        # Use base URL without API key in URL (security improvement)
+        self.base_url = "https://mainnet.helius-rpc.com"
         self.session = requests.Session()
         self.session.headers.update({
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.api_key}'  # Use Authorization header instead of URL param
         })
 
     def _make_rpc_request(self, method: str, params: list = None) -> Optional[Dict]:
