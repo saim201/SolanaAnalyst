@@ -4,8 +4,9 @@ from datetime import datetime
 
 class ProgressTracker:
     """
-    Progress tracker for SSE (Server-Sent Events) streaming.
-    Tracks analysis pipeline progress and emits status updates.
+    Progress tracker for real-time analysis pipeline monitoring.
+    Tracks analysis pipeline progress and emits status updates via callback.
+    Works with PostgreSQL-backed progress storage for Lambda compatibility.
     """
 
     def __init__(self, callback: Optional[Callable[[str, str, str], None]] = None):

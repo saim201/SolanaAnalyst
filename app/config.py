@@ -1,14 +1,15 @@
 
 from pydantic_settings import BaseSettings
+from typing import Optional
 import os
 
 
 class Settings(BaseSettings):
     # API Keys
     ANTHROPIC_API_KEY: str
-    COINGECKO_API_KEY: str
-    SOLSCAN_API_KEY: str
-    HELIUS_API_KEY: str
+    COINGECKO_API_KEY: Optional[str] = None
+    SOLSCAN_API_KEY: Optional[str] = None
+    HELIUS_API_KEY: Optional[str] = None
 
     # Database
     DATABASE_URL: str
@@ -21,11 +22,6 @@ class Settings(BaseSettings):
 
     # Environment detection - AWS Lambda sets AWS_EXECUTION_ENV
     IS_LAMBDA: bool = bool(os.getenv("AWS_EXECUTION_ENV"))
-
-    # Scheduler
-    SCHEDULER_ENABLED: bool = True
-    SCHEDULER_HOUR: int = 0
-    SCHEDULER_MINUTE: int = 0
 
     class Config:
         env_file = ".env"
