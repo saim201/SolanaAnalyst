@@ -3,8 +3,10 @@ import os
 from anthropic import Anthropic
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 from typing import Literal
+from dotenv import load_dotenv
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")  # ✅ FIXED
+load_dotenv()
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
 Model = Literal["claude-sonnet-4-5-20250929", "claude-3-5-haiku-20241022"]
 

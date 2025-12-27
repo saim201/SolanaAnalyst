@@ -1,14 +1,19 @@
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from datetime import datetime
 import uuid
 import re
+import json
+import asyncio
+from typing import AsyncGenerator
 
 from app.api.schemas import TradeAnalysisResponse
 from app.agents.pipeline import TradingGraph
 from app.database.config import get_db_session
 from app.database.models import TechnicalAnalyst, NewsAnalyst, ReflectionAnalyst, TraderAnalyst
 from app.data.refresh_manager import RefreshManager
+from app.utils.progress_tracker import ProgressTracker
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -158,5 +163,123 @@ def analyse_trade():
     finally:
         if db:
             db.close()
+
+
+@router.get("/sol/analyse/stream")
+async def analyse_trade_stream():
+    """
+    Streaming endpoint for real-time analysis progress updates using SSE.
+    Sends progress events as the analysis pipeline executes.
+    """
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        """Generate SSE events for analysis progress"""
+        db = None
+        progress_events = []
+
+        def progress_callback(step: str, status: str, message: str):
+            """Callback to capture progress events"""
+            event_data = {
+                "step": step,
+                "status": status,
+                "message": message,
+                "timestamp": datetime.now().isoformat()
+            }
+            progress_events.append(event_data)
+
+        try:
+            # Create progress tracker with callback
+            tracker = ProgressTracker(callback=progress_callback)
+
+            # Step 1: Refresh market data
+            yield f"data: {json.dumps({'step': 'refresh_data', 'status': 'started', 'message': 'Fetching latest market data from Binance and news sources...', 'timestamp': datetime.now().isoformat()})}\n\n"
+            await asyncio.sleep(0.1)  # Allow event to be sent
+
+            try:
+                await asyncio.to_thread(RefreshManager.refresh_all_data)
+                yield f"data: {json.dumps({'step': 'refresh_data', 'status': 'completed', 'message': 'Market data refreshed successfully', 'timestamp': datetime.now().isoformat()})}\n\n"
+            except Exception as refresh_err:
+                yield f"data: {json.dumps({'step': 'refresh_data', 'status': 'warning', 'message': f'Data refresh partial, proceeding with existing data', 'timestamp': datetime.now().isoformat()})}\n\n"
+
+            await asyncio.sleep(0.1)
+
+            # Step 2: Run trading graph with progress tracking
+            graph = TradingGraph(progress_tracker=tracker)
+
+            # Execute graph in thread and stream progress events
+            result_container = {}
+
+            def run_graph():
+                result_container['result'] = graph.run()
+
+            # Start graph execution in background
+            import threading
+            graph_thread = threading.Thread(target=run_graph)
+            graph_thread.start()
+
+            # Stream progress events as they arrive
+            last_event_count = 0
+            while graph_thread.is_alive():
+                await asyncio.sleep(0.2)  # Check for new events every 200ms
+
+                # Send any new events that were captured
+                if len(progress_events) > last_event_count:
+                    for event in progress_events[last_event_count:]:
+                        yield f"data: {json.dumps(event)}\n\n"
+                    last_event_count = len(progress_events)
+
+            # Wait for thread to complete
+            graph_thread.join()
+
+            # Send any remaining events
+            if len(progress_events) > last_event_count:
+                for event in progress_events[last_event_count:]:
+                    yield f"data: {json.dumps(event)}\n\n"
+
+            # Step 3: Prepare and send final result
+            result = result_container.get('result', {})
+            db = get_db_session()
+            timestamp = datetime.now()
+
+            # Sanitize all text fields
+            sanitized_result = sanitize_dict(result)
+
+            final_response = TradeAnalysisResponse(
+                technical_analysis=sanitized_result.get('technical', {}),
+                news_analysis=sanitized_result.get('news', {}),
+                reflection_analysis=sanitized_result.get('reflection', {}),
+                trader_analysis=sanitized_result.get('trader', {}),
+                timestamp=timestamp.isoformat()
+            )
+
+            # Send completion event with full result
+            yield f"data: {json.dumps({'step': 'complete', 'status': 'completed', 'message': 'Analysis complete', 'result': final_response.model_dump(), 'timestamp': datetime.now().isoformat()})}\n\n"
+
+        except Exception as e:
+            # Send error event
+            error_event = {
+                "step": "error",
+                "status": "error",
+                "message": f"Analysis failed: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+            yield f"data: {json.dumps(error_event)}\n\n"
+
+            if db:
+                db.rollback()
+
+        finally:
+            if db:
+                db.close()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        }
+    )
 
 
