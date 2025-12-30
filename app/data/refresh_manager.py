@@ -12,16 +12,16 @@ from app.data.fetchers.rss_news_fetcher import RSSNewsFetcher
 from app.data.indicators import IndicatorsProcessor
 from app.database.config import get_db_session
 from app.database.data_manager import DataManager
-from app.database.models.candlestick import CandlestickModel, TickerModel
+from app.database.models.candlestick import CandlestickModel, TickerModel, BTCCandlestickModel
 
 
 class RefreshManager:
     @staticmethod
     def refresh_all_data():
-        print(f"Refreshing data - {datetime.now().isoformat()}")
+        print(f"\n Refreshing data - {datetime.now().isoformat()}")
 
         success_count = 0
-        total_sources = 4
+        total_sources = 6 
 
         binance_success = RefreshManager._fetch_candlestick_data()
         if binance_success:
@@ -31,18 +31,28 @@ class RefreshManager:
         if ticker_success:
             success_count += 1
 
+        btc_candles_success = RefreshManager._fetch_btc_candlestick_data()
+        if btc_candles_success:
+            success_count += 1
+
+        btc_ticker_success = RefreshManager._fetch_btc_ticker_data()
+        if btc_ticker_success:
+            success_count += 1
+
         news_success = RefreshManager._fetch_news_data()
         if news_success:
             success_count += 1
-        
+
         indicators_success = RefreshManager._calculate_and_save_indicators()
         if indicators_success:
             success_count += 1
 
 
-        print(f"Refresh complete: {success_count}/{total_sources} sources updated")
+        print(f"✅ Refresh complete: {success_count}/{total_sources} sources updated")
         return success_count == total_sources
     
+
+
 
     @staticmethod
     def _fetch_ticker_data() -> bool:
@@ -55,7 +65,6 @@ class RefreshManager:
             print(f"Ticker 24h fetch error: {str(e)}")
             return False
 
-
     @staticmethod
     def _fetch_candlestick_data() -> bool:
         try:
@@ -67,9 +76,24 @@ class RefreshManager:
         except Exception as e:
             print(f"Candlestick fetch error: {str(e)}")
             return False
-    
 
+    @staticmethod
+    def _fetch_btc_candlestick_data() -> bool:
+        try:
+            binance_fetcher = BinanceFetcher()
+            return binance_fetcher.fetch_and_save_btc_klines_db(interval='1d', limit=30)
+        except Exception as e:
+            print(f"⚠️  BTC candlestick fetch error: {str(e)}")
+            return False
 
+    @staticmethod
+    def _fetch_btc_ticker_data() -> bool:
+        try:
+            binance_fetcher = BinanceFetcher()
+            return binance_fetcher.fetch_and_save_btc_ticker_db()
+        except Exception as e:
+            print(f"⚠️  BTC ticker fetch error: {str(e)}")
+            return False
 
     @staticmethod
     def _fetch_news_data() -> bool:
@@ -83,25 +107,31 @@ class RefreshManager:
             return False
     
 
-
     @staticmethod
     def _calculate_and_save_indicators() -> bool:
         try:
             db = get_db_session()
 
+            # Fetch SOL daily candles
             daily_candles = db.query(CandlestickModel).order_by(
                 CandlestickModel.open_time.desc()
             ).limit(90).all()
 
+            # Fetch SOL ticker
             ticker_data = db.query(TickerModel).order_by(
                 TickerModel.timestamp.desc()
             ).first()
 
+            btc_candles = db.query(BTCCandlestickModel).order_by(
+                BTCCandlestickModel.open_time.desc()
+            ).limit(30).all()
 
-            db.close()  
+            db.close()
 
             daily_candles = sorted(daily_candles, key=lambda x: x.open_time)
+            btc_candles = sorted(btc_candles, key=lambda x: x.open_time)
 
+            # Convert SOL candles to DataFrame
             daily_df = pd.DataFrame([{
                 'open': c.open,
                 'high': c.high,
@@ -112,6 +142,16 @@ class RefreshManager:
                 'open_time': c.open_time
             } for c in daily_candles])
 
+            btc_df = pd.DataFrame([{
+                'open': c.open,
+                'high': c.high,
+                'low': c.low,
+                'close': c.close,
+                'volume': c.volume,
+                'open_time': c.open_time
+            } for c in btc_candles])
+
+            # Calculate SOL indicators
             daily_indicators = IndicatorsProcessor.calculate_all_indicators(daily_df)
 
             if not daily_indicators:
@@ -132,13 +172,17 @@ class RefreshManager:
             except Exception as e:
                 print(f"Ticker indicators calculation warning: {str(e)}")
 
-            combined_indicators = {**daily_indicators, **ticker_indicators}
+            btc_correlation = {}
+            try:
+                if len(btc_df) >= 2 and len(daily_df) >= 2:
+                    btc_correlation = IndicatorsProcessor.calculate_btc_correlation(daily_df, btc_df, periods=30)
+                    print(f"📊 BTC Correlation: {btc_correlation.get('sol_btc_correlation', 0):.3f}, BTC Trend: {btc_correlation.get('btc_trend', 'UNKNOWN')}")
+            except Exception as e:
+                print(f"⚠️  BTC correlation calculation warning: {str(e)}")
 
-            # Use context manager to ensure db session is properly closed
+            combined_indicators = {**daily_indicators, **ticker_indicators, **btc_correlation}
+
             with DataManager() as manager:
-                # Use current time to ensure each refresh creates a new indicator snapshot
-                # This allows agents to see real-time updates from ticker-based metrics
-                # (momentum_24h, volume_surge_24h, range_position_24h)
                 indicator_timestamp = datetime.now()
                 manager.save_indicators(indicator_timestamp, combined_indicators)
             return True
@@ -151,10 +195,5 @@ class RefreshManager:
 
 
 if __name__ == "__main__":
-    from datetime import date
-    
-    start_date = date(2025, 1, 31)
-    today = date.today()
-    total_days = (today - start_date).days
     
     RefreshManager.refresh_all_data()

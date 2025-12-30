@@ -11,7 +11,6 @@ class IndicatorsModel(Base):
 
     ema20 = Column(Float, nullable=True)
     ema50 = Column(Float, nullable=True)
-    ema200 = Column(Float, nullable=True)  # Major trend bias indicator
 
     macd_line = Column(Float, nullable=True)
     macd_signal = Column(Float, nullable=True)
@@ -31,17 +30,13 @@ class IndicatorsModel(Base):
     volume_current = Column(Float, nullable=True)
     volume_ratio = Column(Float, nullable=True)
     volume_classification = Column(String(20), nullable=True)  # STRONG/ACCEPTABLE/WEAK/DEAD
-    volume_trading_allowed = Column(String(10), nullable=True)  # True/False as string
-    volume_confidence_multiplier = Column(Float, nullable=True)  # 0.0-1.0
     days_since_volume_spike = Column(Integer, nullable=True)  # Days since last >1.5x spike
 
-    # Ichimoku & 14-day levels
-    kijun_sen = Column(Float, nullable=True)  # Ichimoku baseline
+    # 14-day levels
     high_14d = Column(Float, nullable=True)  # 14-day high
     low_14d = Column(Float, nullable=True)  # 14-day low
 
     # Additional momentum
-    stoch_rsi = Column(Float, nullable=True)  # Stochastic RSI (0-1)
     atr_percent = Column(Float, nullable=True)  # ATR as % of price
 
     support1 = Column(Float, nullable=True)
@@ -54,14 +49,15 @@ class IndicatorsModel(Base):
     resistance2 = Column(Float, nullable=True)
     resistance2_percent = Column(Float, nullable=True)
 
-    fib_level_382 = Column(Float, nullable=True)
-    fib_level_618 = Column(Float, nullable=True)
+    # Volatility indicators
+    bb_squeeze_ratio = Column(Float, nullable=True)  # Bollinger Band squeeze ratio
+    bb_squeeze_active = Column(String(10), nullable=True)  # 'True' or 'False'
+    weighted_buy_pressure = Column(Float, nullable=True)  # Weighted buy pressure (0-100)
 
-    pivot_weekly = Column(Float, nullable=True) 
-
-    momentum_24h = Column(Float, nullable=True)
-    range_position_24h = Column(Float, nullable=True)
-    volume_surge_24h = Column(Float, nullable=True)
+    # BTC Correlation (for altcoin analysis)
+    btc_price_change_30d = Column(Float, nullable=True)  # 30-day BTC price change
+    btc_trend = Column(String(20), nullable=True)  # BULLISH/BEARISH/NEUTRAL
+    sol_btc_correlation = Column(Float, nullable=True)  # Correlation coefficient (0-1)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

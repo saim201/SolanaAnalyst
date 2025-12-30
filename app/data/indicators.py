@@ -1,8 +1,45 @@
 
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Dict, Tuple, List
+
+
+def exclude_incomplete_candle_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Remove the most recent candle if it's from today (incomplete).
+
+    THE BUG: When pipeline runs mid-day, the last daily candle only has
+    partial volume (e.g., 6 hours instead of 24 hours). This makes
+    volume_ratio appear extremely low (0.14x) when actual volume is normal.
+
+    THE FIX: Exclude today's incomplete candle from volume calculations.
+    """
+    if df.empty or len(df) < 2:
+        return df
+
+    last_open_time = df['open_time'].iloc[-1]
+
+    # Handle different date formats
+    if isinstance(last_open_time, str):
+        try:
+            last_date = datetime.fromisoformat(last_open_time.replace('Z', '+00:00')).date()
+        except:
+            return df
+    elif hasattr(last_open_time, 'date'):
+        last_date = last_open_time.date()
+    elif isinstance(last_open_time, date):
+        last_date = last_open_time
+    else:
+        return df
+
+    today = date.today()
+
+    if last_date == today:
+        print(f"✂️  Excluding incomplete candle from {last_date} for volume calculation")
+        return df.iloc[:-1].copy()
+
+    return df
 
 
 def classify_volume_quality(volume_ratio: float) -> dict:
@@ -53,38 +90,47 @@ def detect_rsi_divergence(df: pd.DataFrame, rsi_series: pd.Series, lookback: int
     - BEARISH: Price makes higher high, RSI makes lower high (reversal down)
     - NONE: No divergence detected
     """
-    if len(df) < lookback:
+    if len(df) < lookback or len(rsi_series) < lookback:
         return {"type": "NONE", "strength": 0.0}
 
     recent_df = df.tail(lookback).copy()
     recent_rsi = rsi_series.tail(lookback)
 
     try:
-        # Check for bearish divergence (price higher high, RSI lower high)
-        # Compare current vs 5 periods ago
-        if len(recent_df) >= 6:
-            price_current = recent_df['high'].iloc[-1]
-            price_prev = recent_df['high'].iloc[-6]
-            rsi_current = recent_rsi.iloc[-1]
-            rsi_prev = recent_rsi.iloc[-6]
+        # Check multiple lookback periods for divergence (3, 5, 7, 10, 14 candles)
+        # Expanded range to catch divergences over longer timeframes
+        for period in [3, 5, 7, 10, 14]:
+            if len(recent_df) >= period + 1:
+                price_current = recent_df['high'].iloc[-1]
+                price_prev = recent_df['high'].iloc[-(period + 1)]
+                price_low_current = recent_df['low'].iloc[-1]
+                price_low_prev = recent_df['low'].iloc[-(period + 1)]
 
-            # Bearish: Price up, RSI down
-            if price_current > price_prev and rsi_current < rsi_prev:
-                strength = min(abs(rsi_current - rsi_prev) / 20.0, 1.0)  # Normalize to 0-1
-                return {"type": "BEARISH", "strength": float(strength)}
+                rsi_current = recent_rsi.iloc[-1]
+                rsi_prev = recent_rsi.iloc[-(period + 1)]
 
-            # Bullish: Price down, RSI up
-            price_low_current = recent_df['low'].iloc[-1]
-            price_low_prev = recent_df['low'].iloc[-6]
+                # Bearish divergence: Price making higher high, RSI making lower high
+                # Require at least 1% price increase for meaningful divergence
+                price_change_pct = ((price_current - price_prev) / price_prev * 100) if price_prev > 0 else 0
 
-            if price_low_current < price_low_prev and rsi_current > rsi_prev:
-                strength = min(abs(rsi_current - rsi_prev) / 20.0, 1.0)
-                return {"type": "BULLISH", "strength": float(strength)}
+                if price_change_pct > 1.0 and rsi_current < rsi_prev - 2:  # Price up >1%, RSI down >2 points
+                    strength = min(abs(rsi_current - rsi_prev) / 20.0, 1.0)
+                    return {"type": "BEARISH", "strength": float(strength)}
+
+                # Bullish divergence: Price making lower low, RSI making higher low
+                # Require at least 1% price decrease for meaningful divergence
+                price_change_pct_low = ((price_low_current - price_low_prev) / price_low_prev * 100) if price_low_prev > 0 else 0
+
+                if price_change_pct_low < -1.0 and rsi_current > rsi_prev + 2:  # Price down >1%, RSI up >2 points
+                    strength = min(abs(rsi_current - rsi_prev) / 20.0, 1.0)
+                    return {"type": "BULLISH", "strength": float(strength)}
 
         return {"type": "NONE", "strength": 0.0}
 
     except Exception as e:
         print(f"⚠️  RSI divergence detection error: {e}")
+        import traceback
+        traceback.print_exc()
         return {"type": "NONE", "strength": 0.0}
 
 
@@ -158,9 +204,97 @@ class IndicatorsCalculator:
             return 1.0
         return current_volume / volume_ma
 
+    @staticmethod
+    def calculate_vwap(df: pd.DataFrame) -> Dict[str, float]:
+        """
+        Calculate VWAP (Volume Weighted Average Price)
+        VWAP = Σ(Price × Volume) / Σ(Volume)
+        This is the institutional benchmark - price above VWAP = bullish control
+        """
+        if df.empty or len(df) < 1:
+            return {'vwap': 0.0, 'vwap_distance_percent': 0.0}
 
+        # Use typical price (high + low + close) / 3
+        typical_price = (df['high'] + df['low'] + df['close']) / 3
+        total_pv = (typical_price * df['volume']).sum()
+        total_volume = df['volume'].sum()
+        vwap = total_pv / total_volume if total_volume > 0 else 0
 
+        current_price = float(df['close'].iloc[-1])
+        vwap_distance = ((current_price - vwap) / vwap) * 100 if vwap > 0 else 0
 
+        return {
+            'vwap': float(vwap),
+            'vwap_distance_percent': float(vwap_distance)
+        }
+
+    @staticmethod
+    def calculate_bb_squeeze(bb_upper: float, bb_lower: float, current_price: float) -> Dict[str, any]:
+        """
+        Calculate Bollinger Band Squeeze Ratio
+        Squeeze Ratio = (BB Upper - BB Lower) / Price × 100
+        Low ratio (<10%) = Tight squeeze = Breakout imminent
+        """
+        if current_price == 0:
+            return {'bb_squeeze_ratio': 0.0, 'bb_squeeze_active': False}
+
+        bb_width = bb_upper - bb_lower
+        squeeze_ratio = (bb_width / current_price) * 100
+        squeeze_active = squeeze_ratio < 10.0
+
+        return {
+            'bb_squeeze_ratio': float(squeeze_ratio),
+            'bb_squeeze_active': bool(squeeze_active)
+        }
+
+    @staticmethod
+    def calculate_weighted_buy_pressure(df: pd.DataFrame, periods: int = 7) -> float:
+        """
+        Calculate Weighted Buy Pressure with exponential decay
+        Recent activity matters more - most recent candle = 40%, previous = 30%, etc.
+        Returns: Buy pressure percentage (0-100)
+        """
+        if df.empty or len(df) < periods:
+            return 50.0  # Neutral
+
+        recent_candles = df.tail(periods)
+        weights = [0.40, 0.30, 0.15, 0.10, 0.05]  # For last 5 candles
+
+        if len(recent_candles) < 5:
+            weights = weights[:len(recent_candles)]
+            weight_sum = sum(weights)
+            weights = [w / weight_sum for w in weights]
+
+        weighted_pressure = 0.0
+        for i, (_, candle) in enumerate(recent_candles.tail(min(5, len(recent_candles))).iterrows()):
+            volume = candle.get('volume', 0)
+            taker_buy = candle.get('taker_buy_base', 0)
+            buy_ratio = (taker_buy / volume * 100) if volume > 0 else 50.0
+            weighted_pressure += buy_ratio * weights[i]
+
+        return float(weighted_pressure)
+
+    @staticmethod
+    def calculate_correlation(sol_prices: List[float], btc_prices: List[float]) -> float:
+        """
+        Calculate 30-day correlation coefficient between SOL and BTC
+        Typical SOL-BTC correlation: 0.75-0.90
+        """
+        if len(sol_prices) < 2 or len(btc_prices) < 2:
+            return 0.8  # Default assumption
+
+        min_len = min(len(sol_prices), len(btc_prices))
+        sol_prices = sol_prices[-min_len:]
+        btc_prices = btc_prices[-min_len:]
+
+        sol_series = pd.Series(sol_prices)
+        btc_series = pd.Series(btc_prices)
+        correlation = sol_series.corr(btc_series)
+
+        if pd.isna(correlation):
+            return 0.8  # Default
+
+        return float(correlation)
 
     @staticmethod
     def kijun_sen(df: pd.DataFrame, period: int = 26) -> float:
@@ -183,7 +317,7 @@ class IndicatorsCalculator:
 
     @staticmethod
     def days_since_volume_spike(df: pd.DataFrame, spike_threshold: float = 1.5) -> int:
-        """Days since last volume spike (>1.5x average)"""
+        #Days since last volume spike (>1.5x average)
         try:
             volume_ma20 = df['volume'].rolling(20).mean()
             spike_condition = df['volume'] > (volume_ma20 * spike_threshold)
@@ -224,12 +358,11 @@ class IndicatorsCalculator:
     @staticmethod
     def find_support_resistance(df: pd.DataFrame, current_price: float, lookback_days: int = 30) -> Tuple[List[float], List[float]]:
         recent = df.tail(lookback_days)
-        
+
         ema20 = recent['close'].ewm(span=20, adjust=False).mean().iloc[-1]
         ema50 = recent['close'].ewm(span=50, adjust=False).mean().iloc[-1]
-        ema200 = recent['close'].ewm(span=200, adjust=False).mean().iloc[-1]
-        
-        all_levels = [ema20, ema50, ema200]
+
+        all_levels = [ema20, ema50]
         
         highs = recent['high'].values
         lows = recent['low'].values
@@ -265,7 +398,6 @@ class IndicatorsProcessor:
         # Trend
         indicators['ema20'] = float(IndicatorsCalculator.ema(df['close'], 20).iloc[-1] or 0)
         indicators['ema50'] = float(IndicatorsCalculator.ema(df['close'], 50).iloc[-1] or 0)
-        indicators['ema200'] = float(IndicatorsCalculator.ema(df['close'], 200).iloc[-1] or 0)
         
         macd_line, signal_line, histogram = IndicatorsCalculator.macd(df['close'])
         indicators['macd_line'] = float(macd_line.iloc[-1] or 0)
@@ -286,30 +418,45 @@ class IndicatorsProcessor:
         indicators['bb_lower'] = float(bb_lower.iloc[-1] or 0)
 
         current_price = float(df['close'].iloc[-1])
-        
+
+        # NEW: BB Squeeze calculation
+        bb_squeeze = IndicatorsCalculator.calculate_bb_squeeze(
+            indicators['bb_upper'],
+            indicators['bb_lower'],
+            current_price
+        )
+        indicators['bb_squeeze_ratio'] = bb_squeeze['bb_squeeze_ratio']
+        indicators['bb_squeeze_active'] = bb_squeeze['bb_squeeze_active']
+
+
+        # NEW: Weighted Buy Pressure
+        indicators['weighted_buy_pressure'] = IndicatorsCalculator.calculate_weighted_buy_pressure(df, periods=7)
+
         atr = IndicatorsCalculator.atr(df, 14)
         indicators['atr'] = float(atr.iloc[-1] or 0)
 
-        vol_ma = IndicatorsCalculator.volume_ma(df['volume'], 20)
-        current_vol = float(df['volume'].iloc[-1])
-        indicators['volume_ma20'] = float(vol_ma.iloc[-1] or 0)
-        indicators['volume_current'] = current_vol
-        indicators['volume_ratio'] = IndicatorsCalculator.volume_ratio(current_vol, indicators['volume_ma20'])
+        # VOLUME CALCULATION - Fixed to exclude incomplete candles
+        df_complete = exclude_incomplete_candle_df(df)
+
+        if len(df_complete) < 20:
+            print(f"⚠️  Not enough complete candles for volume MA (need 20, got {len(df_complete)})")
+            indicators['volume_ma20'] = 0
+            indicators['volume_current'] = 0
+            indicators['volume_ratio'] = 1.0
+        else:
+            vol_ma = IndicatorsCalculator.volume_ma(df_complete['volume'], 20)
+            # Use the last COMPLETE candle's volume, not today's partial
+            current_vol = float(df_complete['volume'].iloc[-1])
+            indicators['volume_ma20'] = float(vol_ma.iloc[-1] or 0)
+            indicators['volume_current'] = current_vol
+            indicators['volume_ratio'] = IndicatorsCalculator.volume_ratio(current_vol, indicators['volume_ma20'])
 
         # Volume quality classification
         volume_quality = classify_volume_quality(indicators['volume_ratio'])
         indicators['volume_classification'] = volume_quality['classification']
-        indicators['volume_trading_allowed'] = volume_quality['trading_allowed']
-        indicators['volume_confidence_multiplier'] = volume_quality['confidence_multiplier']
 
-        # Days since last volume spike
-        indicators['days_since_volume_spike'] = IndicatorsCalculator.days_since_volume_spike(df, spike_threshold=1.5)
-
-        # Stochastic RSI
-        indicators['stoch_rsi'] = IndicatorsCalculator.stochastic_rsi(rsi_series, period=14)
-
-        # Kijun-Sen (Ichimoku Base Line)
-        indicators['kijun_sen'] = IndicatorsCalculator.kijun_sen(df, period=26)
+        # Days since last volume spike - also use complete candles
+        indicators['days_since_volume_spike'] = IndicatorsCalculator.days_since_volume_spike(df_complete, spike_threshold=1.5)
 
         # 14-day high/low for swing context
         last_14d = df.tail(14)
@@ -321,26 +468,6 @@ class IndicatorsProcessor:
             indicators['atr_percent'] = (indicators['atr'] / current_price) * 100
         else:
             indicators['atr_percent'] = 0.0
-
-        # Fibonacci Retracement (ONLY 38.2% and 61.8% - key levels for swing trading)
-        swing_high, swing_low = IndicatorsCalculator.find_recent_swing(df, 30)
-        fib_levels = IndicatorsCalculator.fibonacci_retracement(swing_high, swing_low)
-        indicators['fib_level_382'] = float(fib_levels['38.2%'])
-        indicators['fib_level_618'] = float(fib_levels['61.8%'])
-        # REMOVED: fib_level_236, fib_level_500
-
-        # Weekly Pivot (for market bias, not intraday trading)
-        # Calculate from last 7 days of data
-        if len(df) >= 7:
-            last_week = df.tail(7)
-            week_high = float(last_week['high'].max())
-            week_low = float(last_week['low'].min())
-            week_close = float(last_week['close'].iloc[-1])
-
-            # Weekly pivot formula: (H + L + C) / 3
-            indicators['pivot_weekly'] = (week_high + week_low + week_close) / 3
-        else:
-            indicators['pivot_weekly'] = None
 
         support_levels, resistance_levels = IndicatorsCalculator.find_support_resistance(df, current_price, 30)
 
@@ -399,6 +526,64 @@ class IndicatorsProcessor:
                 'momentum_24h': 0.0,
                 'range_position_24h': 0.0,
                 'volume_surge_24h': 0.0
+            }
+
+    @staticmethod
+    def calculate_btc_correlation(sol_df: pd.DataFrame, btc_df: pd.DataFrame, periods: int = 30) -> Dict:
+        """
+        Calculate BTC-SOL correlation and BTC trend for altcoin analysis
+        Returns: BTC price, change, trend direction, correlation coefficient, and correlation strength
+        """
+        try:
+            # Get BTC current data
+            btc_price = float(btc_df['close'].iloc[-1])
+            btc_open = float(btc_df['open'].iloc[0])  # First row = oldest (30 days ago)
+            btc_price_change_30d = ((btc_price - btc_open) / btc_open * 100) if btc_open > 0 else 0
+
+            # Calculate BTC trend using EMAs
+            btc_ema20 = btc_df['close'].ewm(span=20, adjust=False).mean().iloc[-1] if len(btc_df) >= 20 else btc_price
+            btc_ema50 = btc_df['close'].ewm(span=50, adjust=False).mean().iloc[-1] if len(btc_df) >= 50 else btc_price
+
+            # Determine BTC trend
+            if btc_ema20 > btc_ema50:
+                btc_trend = "BULLISH"
+            elif btc_ema20 < btc_ema50:
+                btc_trend = "BEARISH"
+            else:
+                btc_trend = "NEUTRAL"
+
+            # Calculate correlation
+            sol_prices = sol_df['close'].tail(periods).tolist()
+            btc_prices = btc_df['close'].tail(periods).tolist()
+
+            correlation = IndicatorsCalculator.calculate_correlation(sol_prices, btc_prices)
+
+            # Classify correlation strength
+            if correlation >= 0.75:
+                btc_correlation_strength = "STRONG"
+            elif correlation >= 0.50:
+                btc_correlation_strength = "MODERATE"
+            elif correlation >= 0.25:
+                btc_correlation_strength = "WEAK"
+            else:
+                btc_correlation_strength = "NONE"
+
+            return {
+                'btc_price': btc_price,
+                'btc_price_change_30d': btc_price_change_30d,
+                'btc_trend': btc_trend,
+                'sol_btc_correlation': correlation,
+                'btc_correlation_strength': btc_correlation_strength
+            }
+
+        except Exception as e:
+            print(f"⚠️  Error calculating BTC correlation: {e}")
+            return {
+                'btc_price': 0.0,
+                'btc_price_change_30d': 0.0,
+                'btc_trend': 'UNKNOWN',
+                'sol_btc_correlation': 0.8,  # Default assumption
+                'btc_correlation_strength': 'UNKNOWN'
             }
 
 

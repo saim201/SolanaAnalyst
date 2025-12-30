@@ -139,36 +139,38 @@ class DataQuery:
 
         return {
             "timestamp": indicators.timestamp,
+
+            # Trend
             "ema20": indicators.ema20,
             "ema50": indicators.ema50,
-            "ema200": indicators.ema200,
+            "high_14d": indicators.high_14d,
+            "low_14d": indicators.low_14d,
 
+            # Momentum
             "macd_line": indicators.macd_line,
             "macd_signal": indicators.macd_signal,
             "macd_histogram": indicators.macd_histogram,
-
             "rsi14": indicators.rsi14,
             "rsi_divergence_type": indicators.rsi_divergence_type,
             "rsi_divergence_strength": indicators.rsi_divergence_strength,
-            "stoch_rsi": indicators.stoch_rsi,
 
+            # Volatility
             "bb_upper": indicators.bb_upper,
             "bb_lower": indicators.bb_lower,
+            "bb_squeeze_ratio": indicators.bb_squeeze_ratio,
+            "bb_squeeze_active": indicators.bb_squeeze_active == 'True',
             "atr": indicators.atr,
             "atr_percent": indicators.atr_percent,
 
+            # Volume
             "volume_ma20": indicators.volume_ma20,
             "volume_current": indicators.volume_current,
             "volume_ratio": indicators.volume_ratio,
             "volume_classification": indicators.volume_classification,
-            "volume_trading_allowed": indicators.volume_trading_allowed == 'True',
-            "volume_confidence_multiplier": indicators.volume_confidence_multiplier,
+            "weighted_buy_pressure": indicators.weighted_buy_pressure,
             "days_since_volume_spike": indicators.days_since_volume_spike,
 
-            "kijun_sen": indicators.kijun_sen,
-            "high_14d": indicators.high_14d,
-            "low_14d": indicators.low_14d,
-
+            # Support/Resistance Levels
             "support1": indicators.support1,
             "support1_percent": indicators.support1_percent,
             "support2": indicators.support2,
@@ -178,14 +180,10 @@ class DataQuery:
             "resistance2": indicators.resistance2,
             "resistance2_percent": indicators.resistance2_percent,
 
-            "fib_level_382": indicators.fib_level_382,
-            "fib_level_618": indicators.fib_level_618,
-
-            "pivot_weekly": indicators.pivot_weekly,
-
-            "momentum_24h": indicators.momentum_24h,
-            "range_position_24h": indicators.range_position_24h,
-            "volume_surge_24h": indicators.volume_surge_24h,
+            # BTC Correlation
+            "btc_price_change_30d": indicators.btc_price_change_30d,
+            "btc_trend": indicators.btc_trend,
+            "sol_btc_correlation": indicators.sol_btc_correlation,
         }
 
 

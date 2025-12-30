@@ -7,20 +7,23 @@ class TechnicalAnalyst(Base):
     __tablename__ = 'technical_analyst'
 
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    recommendation = Column(String(20), nullable=False)  # BUY/SELL/HOLD
-    confidence = Column(Float, nullable=False)
-    confidence_breakdown = Column(JSON, nullable=True)
-    timeframe = Column(String(50), nullable=True)
-    entry_level = Column(Float, nullable=True)
-    stop_loss = Column(Float, nullable=True)
-    take_profit = Column(Float, nullable=True)
-    key_signals = Column(JSON, nullable=True)  
-    reasoning = Column(Text, nullable=False)
-    recommendation_summary = Column(Text, nullable=True)
-    watch_list = Column(JSON, nullable=True)
-    thinking = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Core fields
+    timestamp = Column(String(50))  # ISO format timestamp string
+    recommendation = Column(String(10))  # BUY, SELL, HOLD, WAIT
+    confidence = Column(Float)
+    market_condition = Column(String(20))  # TRENDING, RANGING, VOLATILE, QUIET
+
+    # New structured fields (store as JSON)
+    summary = Column(Text)  # 2-3 sentence actionable summary
+    thinking = Column(JSON)  # Array of reasoning steps
+    analysis = Column(JSON)  # {trend, momentum, volume} objects
+    trade_setup = Column(JSON)  # {viability, entry, stop_loss, take_profit, etc.}
+    action_plan = Column(JSON)  # {primary, alternative, if_in_position, avoid}
+    watch_list = Column(JSON)  # {next_24h, next_48h} arrays
+    invalidation = Column(JSON)  # Array of invalidation conditions
+    confidence_reasoning = Column(JSON)  # {supporting, concerns, assessment}
 
     __table_args__ = (
         Index('idx_technical_timestamp', 'timestamp'),

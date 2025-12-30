@@ -228,14 +228,17 @@ IMPORTANT NOTES:
 """
 
 
+# ===== HELPER FUNCTIONS =====
 
 def calculate_distance_percent(current: float, level: float) -> float:
+    """Calculate percentage distance from current price to a level."""
     if current == 0:
         return 0.0
     return ((level - current) / current) * 100
 
 
 def get_btc_interpretation(correlation: float, btc_trend: str) -> str:
+    """Generate human-readable BTC correlation interpretation."""
     if correlation >= 0.75:
         if btc_trend == "BULLISH":
             return "High correlation + bullish BTC = supportive for SOL upside"
@@ -250,6 +253,7 @@ def get_btc_interpretation(correlation: float, btc_trend: str) -> str:
 
 
 def get_rsi_status(rsi: float) -> str:
+    """Get human-readable RSI status."""
     if rsi >= 70:
         return "(OVERBOUGHT - potential reversal)"
     elif rsi >= 60:
@@ -263,6 +267,7 @@ def get_rsi_status(rsi: float) -> str:
 
 
 def get_macd_trend(histogram: float, prev_histogram: float = None) -> str:
+    """Describe MACD histogram trend."""
     if histogram > 0:
         return "Positive - bullish momentum"
     elif histogram < 0:
@@ -272,6 +277,7 @@ def get_macd_trend(histogram: float, prev_histogram: float = None) -> str:
 
 
 def get_atr_interpretation(atr_percent: float) -> str:
+    """Interpret ATR as volatility context."""
     if atr_percent >= 8:
         return "HIGH volatility - expect large swings"
     elif atr_percent >= 4:
@@ -281,6 +287,7 @@ def get_atr_interpretation(atr_percent: float) -> str:
 
 
 def get_volume_trend(buy_pressure: float, volume_ratio: float) -> str:
+    """Describe overall volume trend."""
     if volume_ratio < 0.7:
         return "DEAD - No conviction, signals unreliable"
     elif volume_ratio < 1.0:
@@ -300,6 +307,7 @@ def get_volume_trend(buy_pressure: float, volume_ratio: float) -> str:
 
 
 def get_correlation_strength(correlation: float) -> str:
+    """Classify correlation strength."""
     if correlation >= 0.8:
         return "VERY STRONG"
     elif correlation >= 0.6:
@@ -311,11 +319,13 @@ def get_correlation_strength(correlation: float) -> str:
 
 
 def format_recent_price_action(candles: list, limit: int = 7) -> str:
+    """Format recent daily candles with timestamps for context."""
     if not candles:
         return "No recent data available"
 
     lines = []
     for candle in candles[-limit:]:
+        # Get date
         date_str = candle.get('open_time', 'N/A')
         if hasattr(date_str, 'strftime'):
             formatted_date = date_str.strftime('%Y-%m-%d (%a)')
@@ -350,12 +360,14 @@ def format_recent_price_action(candles: list, limit: int = 7) -> str:
 
 
 def calculate_price_position_in_range(current: float, high_14d: float, low_14d: float) -> float:
+    """Calculate where current price sits in 14d range (0-100%)."""
     range_size = high_14d - low_14d
     if range_size == 0:
         return 0.5
     return (current - low_14d) / range_size
 
 
+# ===== TECHNICAL AGENT CLASS =====
 
 class TechnicalAgent(BaseAgent):
     def __init__(self):
@@ -363,6 +375,155 @@ class TechnicalAgent(BaseAgent):
             model="claude-sonnet-4-20250514",
             temperature=0.3
         )
+
+    @staticmethod
+    def detect_candle_pattern(candle: dict) -> str:
+        open_p = candle['open']
+        close_p = candle['close']
+        high_p = candle['high']
+        low_p = candle['low']
+
+        body = abs(close_p - open_p)
+        range_total = high_p - low_p
+
+        if range_total == 0:
+            return "NONE"
+
+        body_ratio = body / range_total
+
+        # Doji: small body (<10% of range)
+        if body_ratio < 0.1:
+            return "DOJI"
+
+        # Hammer/Inverted Hammer: small body, long wick
+        upper_wick = high_p - max(open_p, close_p)
+        lower_wick = min(open_p, close_p) - low_p
+
+        if lower_wick > body * 2 and upper_wick < body:
+            return "HAMMER" if close_p > open_p else "HANGING_MAN"
+
+        if upper_wick > body * 2 and lower_wick < body:
+            return "INVERTED_HAMMER" if close_p > open_p else "SHOOTING_STAR"
+
+        # Engulfing
+        # Would need previous candle for this
+
+        return "NONE"
+
+    @staticmethod
+    def format_daily_ohlc(candles: list) -> str:
+        if not candles:
+            return "No data available"
+
+        lines = []
+        for candle in candles[-14:]:
+            date = candle.get('open_time', 'N/A')
+            o = candle.get('open', 0)
+            h = candle.get('high', 0)
+            l = candle.get('low', 0)
+            c = candle.get('close', 0)
+            volume = candle.get('volume', 0)
+            taker_buy_base = candle.get('taker_buy_base', 0)
+
+            change = ((c - o) / o * 100) if o > 0 else 0
+            buy_ratio = (taker_buy_base / volume * 100) if volume > 0 else 50.0
+
+            lines.append(
+                f"  {date}: O=${o:.2f} H=${h:.2f} L=${l:.2f} C=${c:.2f} ({change:+.1f}%) | "
+                f"Vol={volume:,.0f} BuyPressure={buy_ratio:.1f}%"
+            )
+
+        return "\n".join(lines)
+
+
+
+    @staticmethod
+    def format_4h_candles(candles: list) -> str:
+        if not candles:
+            return "No data available"
+
+        lines = []
+        for candle in candles[-12:]:
+            time = candle.get('open_time', 'N/A')
+            o = candle.get('open', 0)
+            c = candle.get('close', 0)
+            change = ((c - o) / o * 100) if o > 0 else 0
+            pattern = TechnicalAgent.detect_candle_pattern(candle)
+
+            pattern_str = f" [{pattern}]" if pattern != "NONE" else ""
+            lines.append(f"  {time}: ${c:.2f} ({change:+.1f}%){pattern_str}")
+
+        return "\n".join(lines)
+
+
+
+    @staticmethod
+    def format_volume_progression(candles: list) -> str:
+        if not candles or len(candles) < 14:
+            return "Insufficient data"
+
+        recent = candles[-14:]
+        volumes = [c.get('volume', 0) for c in recent]
+
+        first_half_avg = sum(volumes[:7]) / 7
+        second_half_avg = sum(volumes[7:]) / 7
+        volume_trend = "INCREASING" if second_half_avg > first_half_avg * 1.1 else "DECREASING" if second_half_avg < first_half_avg * 0.9 else "STABLE"
+
+        first_half_buy = []
+        second_half_buy = []
+
+        for i, candle in enumerate(recent):
+            volume = candle.get('volume', 0)
+            taker_buy = candle.get('taker_buy_base', 0)
+            buy_ratio = (taker_buy / volume * 100) if volume > 0 else 50.0
+
+            if i < 7:
+                first_half_buy.append(buy_ratio)
+            else:
+                second_half_buy.append(buy_ratio)
+
+        avg_buy_first = sum(first_half_buy) / 7
+        avg_buy_second = sum(second_half_buy) / 7
+        buy_trend = "STRENGTHENING" if avg_buy_second > avg_buy_first + 3 else "WEAKENING" if avg_buy_second < avg_buy_first - 3 else "STABLE"
+
+        latest = recent[-1]
+        latest_buy = (latest.get('taker_buy_base', 0) / latest.get('volume', 1) * 100)
+
+        return (
+            f"  Volume Trend: {volume_trend}\n"
+            f"  Recent 7d Avg: {second_half_avg:,.0f} ({((second_half_avg/first_half_avg - 1) * 100):+.1f}% vs prior 7d)\n"
+            f"  Buying Pressure Trend: {buy_trend}\n"
+            f"  Recent 7d Avg: {avg_buy_second:.1f}% (prior 7d: {avg_buy_first:.1f}%)\n"
+            f"  Latest: {latest_buy:.1f}% (>50% = buyers control)"
+        )
+
+
+
+    @staticmethod
+    def detect_patterns_at_levels(candles: list, support: float, resistance: float) -> str:
+        if not candles or len(candles) < 2:
+            return "Insufficient data"
+
+        patterns = []
+        recent = candles[-5:]
+
+        for candle in recent:
+            low = candle.get('low', 0)
+            high = candle.get('high', 0)
+
+            if support and abs(low - support) / support < 0.02:
+                pattern = TechnicalAgent.detect_candle_pattern(candle)
+                if pattern != "NONE":
+                    patterns.append(f"  {pattern} at support ${support:.2f}")
+
+            if resistance and abs(high - resistance) / resistance < 0.02:
+                pattern = TechnicalAgent.detect_candle_pattern(candle)
+                if pattern != "NONE":
+                    patterns.append(f"  {pattern} at resistance ${resistance:.2f}")
+
+        return "\n".join(patterns) if patterns else "  No significant patterns at key levels"
+
+
 
     def execute(self, state: AgentState) -> AgentState:
         with DataQuery() as dq:
@@ -374,119 +535,138 @@ class TechnicalAgent(BaseAgent):
             if not indicators_data:
                 raise ValueError("No indicators data available")
 
-            daily_candles = dq.get_candlestick_data(days=14)
+            daily_candles = dq.get_candlestick_data(days=14)  # Last 14 days
+            intraday_4h = dq.get_intraday_candles(limit=12)  # Last 48h of 4h candles
 
         current_price = float(ticker.get('lastPrice', 0))
         change_24h = float(ticker.get('priceChangePercent', 0))
         high_24h = float(ticker.get('highPrice', 0))
         low_24h = float(ticker.get('lowPrice', 0))
 
-        # Range position in 24h
         range_24h = high_24h - low_24h
-        range_position_24h = (current_price - low_24h) / range_24h if range_24h > 0 else 0.5
+        if range_24h > 0:
+            range_position_24h = (current_price - low_24h) / range_24h
+        else:
+            range_position_24h = 0.5
 
-        # Trend
         ema20 = float(indicators_data.get('ema20', 0))
         ema50 = float(indicators_data.get('ema50', 0))
+        ema200 = float(indicators_data.get('ema200', 0))
+        kijun_sen = float(indicators_data.get('kijun_sen', 0))
         high_14d = float(indicators_data.get('high_14d', 0))
         low_14d = float(indicators_data.get('low_14d', 0))
 
-        # Momentum
         rsi14 = float(indicators_data.get('rsi14', 50))
+        rsi_divergence_type = indicators_data.get('rsi_divergence_type', 'NONE')
+        rsi_divergence_strength = float(indicators_data.get('rsi_divergence_strength', 0))
+        stoch_rsi = float(indicators_data.get('stoch_rsi', 0.5))
+
         macd_line = float(indicators_data.get('macd_line', 0))
         macd_signal = float(indicators_data.get('macd_signal', 0))
         macd_histogram = float(indicators_data.get('macd_histogram', 0))
-        rsi_divergence_type = indicators_data.get('rsi_divergence_type', 'NONE')
-        rsi_divergence_strength = float(indicators_data.get('rsi_divergence_strength', 0))
 
-        # Volume
         volume_ratio = float(indicators_data.get('volume_ratio', 1.0))
         volume_classification = indicators_data.get('volume_classification', 'ACCEPTABLE')
-        weighted_buy_pressure = float(indicators_data.get('weighted_buy_pressure', 50.0))
+        volume_trading_allowed = indicators_data.get('volume_trading_allowed', True)
+        volume_confidence_multiplier = float(indicators_data.get('volume_confidence_multiplier', 1.0))
         days_since_volume_spike = int(indicators_data.get('days_since_volume_spike', 999))
 
-        # Key levels
-        support1 = float(indicators_data.get('support1') or current_price * 0.95)
-        support2 = float(indicators_data.get('support2') or current_price * 0.90)
-        resistance1 = float(indicators_data.get('resistance1') or current_price * 1.05)
-        resistance2 = float(indicators_data.get('resistance2') or current_price * 1.10)
+        volume_24h = float(ticker.get('volume', 0))
+        volume_ma20 = float(indicators_data.get('volume_ma20', 1))
+        volume_surge_24h = volume_24h / volume_ma20 if volume_ma20 > 0 else 1.0
 
-        # Volatility
         atr = float(indicators_data.get('atr', 0))
         atr_percent = float(indicators_data.get('atr_percent', 0))
-        bb_squeeze_ratio = float(indicators_data.get('bb_squeeze_ratio', 0))
+        bb_upper = float(indicators_data.get('bb_upper', 0))
+        bb_lower = float(indicators_data.get('bb_lower', 0))
         bb_squeeze_active = indicators_data.get('bb_squeeze_active', False)
+        bb_squeeze_ratio = float(indicators_data.get('bb_squeeze_ratio', 0))
 
-        sol_btc_correlation = float(indicators_data.get('sol_btc_correlation', 0.8))
-        btc_trend = indicators_data.get('btc_trend', 'NEUTRAL')
+        vwap = float(indicators_data.get('vwap', 0))
+        vwap_distance = float(indicators_data.get('vwap_distance', 0))
+        weighted_buy_pressure = float(indicators_data.get('weighted_buy_pressure', 50.0))
+
+        sol_btc_correlation = float(indicators_data.get('sol_btc_correlation', 0))
+        btc_correlation_strength = indicators_data.get('btc_correlation_strength', 'UNKNOWN')
+        btc_trend = indicators_data.get('btc_trend', 'UNKNOWN')
         btc_price_change_30d = float(indicators_data.get('btc_price_change_30d', 0))
 
-        ema20_distance = calculate_distance_percent(current_price, ema20)
-        ema50_distance = calculate_distance_percent(current_price, ema50)
-        support1_distance = abs(calculate_distance_percent(current_price, support1))
-        support2_distance = abs(calculate_distance_percent(current_price, support2))
-        resistance1_distance = calculate_distance_percent(current_price, resistance1)
-        resistance2_distance = calculate_distance_percent(current_price, resistance2)
-        price_position_14d = calculate_price_position_in_range(current_price, high_14d, low_14d)
+        support1 = float(indicators_data.get('support1') or 0)
+        support1_percent = float(indicators_data.get('support1_percent') or 0)
+        support2 = float(indicators_data.get('support2') or 0)
+        support2_percent = float(indicators_data.get('support2_percent') or 0)
 
-        rsi_status = get_rsi_status(rsi14)
-        macd_trend = get_macd_trend(macd_histogram)
-        bb_squeeze_status = "ACTIVE (breakout imminent)" if bb_squeeze_active else "INACTIVE"
-        btc_interpretation = get_btc_interpretation(sol_btc_correlation, btc_trend)
-        atr_interpretation = get_atr_interpretation(atr_percent)
-        volume_trend = get_volume_trend(weighted_buy_pressure, volume_ratio)
-        correlation_strength = get_correlation_strength(sol_btc_correlation)
+        resistance1 = float(indicators_data.get('resistance1') or 0)
+        resistance1_percent = float(indicators_data.get('resistance1_percent') or 0)
+        resistance2 = float(indicators_data.get('resistance2') or 0)
+        resistance2_percent = float(indicators_data.get('resistance2_percent') or 0)
 
-        recent_price_action = format_recent_price_action(daily_candles, limit=7)
+        pivot_weekly = float(indicators_data.get('pivot_weekly') or 0)
+        fib_382 = float(indicators_data.get('fib_level_382', 0))
+        fib_618 = float(indicators_data.get('fib_level_618', 0))
 
-        analysis_timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+        daily_ohlc_text = self.format_daily_ohlc(daily_candles)
+        intraday_4h_text = self.format_4h_candles(intraday_4h)
+        volume_progression_text = self.format_volume_progression(daily_candles)
+        candle_patterns_text = self.detect_patterns_at_levels(
+            daily_candles,
+            support1 if support1 > 0 else None,
+            resistance1 if resistance1 > 0 else None
+        )
 
         full_prompt = SYSTEM_PROMPT + "\n\n" + TECHNICAL_PROMPT.format(
-            analysis_timestamp=analysis_timestamp,
             current_price=current_price,
             change_24h=change_24h,
             high_24h=high_24h,
             low_24h=low_24h,
             range_position_24h=range_position_24h,
+            daily_ohlc=daily_ohlc_text,
+            intraday_4h=intraday_4h_text,
+            volume_progression=volume_progression_text,
+            candle_patterns=candle_patterns_text,
             ema20=ema20,
             ema50=ema50,
-            ema20_distance=ema20_distance,
-            ema50_distance=ema50_distance,
+            ema200=ema200,
+            kijun_sen=kijun_sen,
             high_14d=high_14d,
             low_14d=low_14d,
-            price_position_14d=price_position_14d,
             rsi14=rsi14,
-            rsi_status=rsi_status,
+            rsi_divergence_type=rsi_divergence_type,
+            rsi_divergence_strength=rsi_divergence_strength,
+            stoch_rsi=stoch_rsi,
             macd_line=macd_line,
             macd_signal=macd_signal,
             macd_histogram=macd_histogram,
-            macd_trend=macd_trend,
-            rsi_divergence_type=rsi_divergence_type,
-            rsi_divergence_strength=rsi_divergence_strength,
             volume_ratio=volume_ratio,
             volume_classification=volume_classification,
-            weighted_buy_pressure=weighted_buy_pressure,
+            volume_trading_allowed=volume_trading_allowed,
+            volume_confidence_multiplier=volume_confidence_multiplier,
             days_since_volume_spike=days_since_volume_spike,
-            volume_trend=volume_trend,
-            support1=support1,
-            support2=support2,
-            resistance1=resistance1,
-            resistance2=resistance2,
-            support1_distance=support1_distance,
-            support2_distance=support2_distance,
-            resistance1_distance=resistance1_distance,
-            resistance2_distance=resistance2_distance,
+            volume_surge_24h=volume_surge_24h,
+            vwap=vwap,
+            vwap_distance=vwap_distance,
+            weighted_buy_pressure=weighted_buy_pressure,
             atr=atr,
             atr_percent=atr_percent,
-            atr_interpretation=atr_interpretation,
-            bb_squeeze_status=bb_squeeze_status,
+            bb_upper=bb_upper,
+            bb_lower=bb_lower,
+            bb_squeeze_active=bb_squeeze_active,
             bb_squeeze_ratio=bb_squeeze_ratio,
+            support1=support1,
+            support1_percent=support1_percent,
+            support2=support2,
+            support2_percent=support2_percent,
+            resistance1=resistance1,
+            resistance1_percent=resistance1_percent,
+            resistance2=resistance2,
+            resistance2_percent=resistance2_percent,
+            pivot_weekly=pivot_weekly,
+            fib_382=fib_382,
+            fib_618=fib_618,
             sol_btc_correlation=sol_btc_correlation,
-            correlation_strength=correlation_strength,
+            btc_correlation_strength=btc_correlation_strength,
             btc_trend=btc_trend,
             btc_price_change_30d=btc_price_change_30d,
-            btc_interpretation=btc_interpretation,
-            recent_price_action=recent_price_action,
         )
 
         response = llm(
@@ -498,58 +678,66 @@ class TechnicalAgent(BaseAgent):
 
         try:
             thinking_match = re.search(r'<thinking>(.*?)</thinking>', response, re.DOTALL)
-            raw_thinking = thinking_match.group(1).strip() if thinking_match else ""
-
+            thinking = thinking_match.group(1).strip() if thinking_match else ""
+            
             answer_match = re.search(r'<answer>(.*?)</answer>', response, re.DOTALL)
             if answer_match:
-                json_str = answer_match.group(1).strip()
+                answer_json = answer_match.group(1).strip()
             else:
-                json_match = re.search(r'\{[\s\S]*\}', response)
+                json_match = re.search(r'\{.*\}', response, re.DOTALL)
                 if json_match:
-                    json_str = json_match.group(0)
+                    answer_json = json_match.group(0)
                 else:
                     raise ValueError("No JSON found in response")
-
-            json_str = json_str.replace('\u201c', '"').replace('\u201d', '"')
-            json_str = json_str.replace('\u2018', "'").replace('\u2019', "'")
-            json_str = re.sub(r'[\x00-\x1F\x7F]', '', json_str)
-
-            json_str = re.sub(r'^```json\s*', '', json_str)
-            json_str = re.sub(r'\s*```$', '', json_str)
-
-            first_brace = json_str.find('{')
-            last_brace = json_str.rfind('}')
+            
+            answer_json = answer_json.strip()
+            answer_json = re.sub(r'^```json\s*', '', answer_json)
+            answer_json = re.sub(r'\s*```$', '', answer_json)
+            first_brace = answer_json.find('{')
+            last_brace = answer_json.rfind('}')
             if first_brace != -1 and last_brace != -1:
-                json_str = json_str[first_brace:last_brace+1]
+                answer_json = answer_json[first_brace:last_brace+1]
+            
+            answer_json = answer_json.replace('"', '"').replace('"', '"')
+            answer_json = answer_json.replace(''', "'").replace(''', "'")
+            answer_json = re.sub(r'[\x00-\x1F\x7F]', '', answer_json)
 
-            analysis = json.loads(json_str)
+            try:
+                analysis = json.loads(answer_json)
+            except json.JSONDecodeError as json_err:
+                print(f"JSON Parse Error: {json_err}")
+                print(f"Sanitized JSON (first 500 chars): {answer_json[:500]}")
+                print(f"Sanitized JSON (around error position): {answer_json[max(0, json_err.pos-100):json_err.pos+100]}")
+                raise
 
             timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
 
             state['technical'] = {
                 'timestamp': timestamp,
                 'recommendation': analysis.get('recommendation', 'HOLD'),
                 'confidence': float(analysis.get('confidence', 0.5)),
-                'market_condition': analysis.get('market_condition', 'QUIET'),
-                'summary': analysis.get('summary', ''),
-                'thinking': analysis.get('thinking', []),
-                'analysis': analysis.get('analysis', {}),
-                'trade_setup': analysis.get('trade_setup', {}),
-                'action_plan': analysis.get('action_plan', {}),
+                'timeframe': analysis.get('timeframe', '1-7 days'),
+                'key_signals': analysis.get('key_signals', []),
+                'entry_level': analysis.get('entry_level'),
+                'stop_loss': analysis.get('stop_loss'),
+                'take_profit': analysis.get('take_profit'),
+                'reasoning': analysis.get('reasoning', ''),
+                'confidence_breakdown': analysis.get('confidence_breakdown', {}),
+                'recommendation_summary': analysis.get('recommendation_summary', ''),
                 'watch_list': analysis.get('watch_list', {}),
-                'invalidation': analysis.get('invalidation', []),
-                'confidence_reasoning': analysis.get('confidence_reasoning', {}),
+                'indicators_analysis': analysis.get('indicators_analysis', {}),
+                'btc_correlation_impact': analysis.get('btc_correlation_impact', {}),
+                'thinking': thinking if thinking else ''
             }
 
             with DataManager() as dm:
                 dm.save_technical_analysis(data=state['technical'])
 
-            if raw_thinking:
-                print(f"🧠 LLM Thinking Process:\n{raw_thinking[:500]}...")
 
         except (json.JSONDecodeError, ValueError) as e:
-            print(f"  Technical agent parsing error: {e}")
-            print(f"Response preview: {response[:500]}")
+            print(f"⚠️  Technical agent parsing error: {e}")
+            print(f"Response: {response[:300]}")
 
             timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -557,22 +745,26 @@ class TechnicalAgent(BaseAgent):
                 'timestamp': timestamp,
                 'recommendation': 'HOLD',
                 'confidence': 0.0,
-                'market_condition': 'QUIET',
-                'summary': f'Analysis error: {str(e)[:100]}',
-                'thinking': [],
-                'analysis': {},
-                'trade_setup': {},
-                'action_plan': {},
+                'reasoning': f"Analysis parsing error: {str(e)[:100]}",
+                'key_signals': [],
+                'entry_level': None,
+                'stop_loss': None,
+                'take_profit': None,
+                'timeframe': 'N/A',
+                'confidence_breakdown': {},
+                'recommendation_summary': 'Error occurred during analysis',
                 'watch_list': {},
-                'invalidation': [],
-                'confidence_reasoning': {},
+                'indicators_analysis': {},
+                'btc_correlation_impact': {},
+                'thinking': ''
             }
 
+            # Save fallback data to database
             try:
                 with DataManager() as dm:
                     dm.save_technical_analysis(data=state['technical'])
             except Exception as save_err:
-                print(f"⚠️  Failed to save fallback: {save_err}")
+                print(f"⚠️  Failed to save fallback technical analysis: {save_err}")
 
         return state
 

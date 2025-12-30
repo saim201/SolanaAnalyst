@@ -50,8 +50,8 @@ class RefreshDataResponse(BaseModel):
 class TechnicalDataResponse(BaseModel):
     currentPrice: float
     priceChange24h: float
+    ema20: float
     ema50: float
-    ema200: float
     support: float
     resistance: float
     volume_current: float
@@ -61,13 +61,11 @@ class TechnicalDataResponse(BaseModel):
     macd_line: float
     macd_signal: float
     timestamp: str
-    ema20: float | None = None
     bb_upper: float | None = None
     bb_lower: float | None = None
     atr: float | None = None
     support1: float | None = None
     resistance1: float | None = None
-    pivot_weekly: float | None = None
 
 
 class TickerResponse(BaseModel):

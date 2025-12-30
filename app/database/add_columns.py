@@ -10,8 +10,8 @@ from sqlalchemy import text
 def add_columns():
     # (table_name, column_name, column_type)
     columns_to_add = [
-        ("candlestick_daily", "created_at", "TIMESTAMP DEFAULT NOW() NOT NULL"),
-        ("candlestick_intraday", "created_at", "TIMESTAMP DEFAULT NOW() NOT NULL"),
+        ("technical_analyst", "indicators_analysis", "JSON"),
+        ("technical_analyst", "btc_correlation_impact", "JSON"),
 
     ]
     

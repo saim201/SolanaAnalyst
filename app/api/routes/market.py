@@ -96,8 +96,8 @@ def get_technical_data():
         return TechnicalDataResponse(
             currentPrice=ticker.lastPrice,
             priceChange24h=ticker.priceChangePercent,
+            ema20=indicators.ema20 or 0.0,
             ema50=indicators.ema50 or 0.0,
-            ema200=indicators.ema200 or 0.0,
             support=indicators.support1 or 0.0,
             resistance=indicators.resistance1 or 0.0,
             volume_current=ticker.volume / 1_000_000_000,  # Convert to billions
@@ -107,13 +107,11 @@ def get_technical_data():
             macd_line=indicators.macd_line or 0.0,
             macd_signal=indicators.macd_signal or 0.0,
             timestamp=datetime.now().isoformat(),
-            ema20=indicators.ema20,
             bb_upper=indicators.bb_upper,
             bb_lower=indicators.bb_lower,
             atr=indicators.atr,
             support1=indicators.support1,
-            resistance1=indicators.resistance1,
-            pivot_weekly=indicators.pivot_weekly
+            resistance1=indicators.resistance1
         )
 
     except Exception as e:

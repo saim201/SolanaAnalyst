@@ -1,13 +1,12 @@
-"""
-Data manager for saving fetched data to PostgreSQL
-"""
+# Data manager for saving fetched data to PostgreSQL
+
 import pandas as pd
 from datetime import datetime
 from typing import List, Dict
 from sqlalchemy.dialects.postgresql import insert
 from app.database.models.news import NewsModel
 from app.database.models.indicators import IndicatorsModel
-from app.database.models.candlestick import CandlestickModel, CandlestickIntradayModel, TickerModel
+from app.database.models.candlestick import CandlestickModel, CandlestickIntradayModel, TickerModel, BTCTickerModel, BTCCandlestickModel
 from app.database.config import get_db_session
 
 
@@ -16,11 +15,9 @@ class DataManager:
         self.db = get_db_session()
 
     def __enter__(self):
-        """Context manager entry - returns self for use in 'with' statements"""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit - ensures db session is closed"""
         self.close()
         return False  # Don't suppress exceptions
 
@@ -56,7 +53,7 @@ class DataManager:
         self.db.execute(stmt)
         self.db.commit()
 
-        print(f"Saved {len(records)} records to databse")
+        print(f"Saved {len(records)} SOL ticker data to databse")
         return len(records)
 
 
@@ -144,6 +141,84 @@ class DataManager:
         return len(records)
 
 
+    def save_btc_ticker_db(self, df: pd.DataFrame) -> int:
+        records = []
+        for _, row in df.iterrows():
+            record = {
+                'lastPrice': float(row['lastPrice']),
+                'priceChangePercent': float(row['priceChangePercent']),
+                'openPrice': float(row['openPrice']),
+                'highPrice': float(row['highPrice']),
+                'lowPrice': float(row['lowPrice']),
+                'volume': row['volume'],
+                'quoteVolume': int(row['quoteVolume']),
+                'timestamp': row['timestamp']
+            }
+            records.append(record)
+
+        stmt = insert(BTCTickerModel).values(records)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['timestamp'],
+            set_={
+                'lastPrice': stmt.excluded.lastPrice,
+                'priceChangePercent': stmt.excluded.priceChangePercent,
+                'openPrice': stmt.excluded.openPrice,
+                'highPrice': stmt.excluded.highPrice,
+                'lowPrice': stmt.excluded.lowPrice,
+                'volume': stmt.excluded.volume,
+                'quoteVolume': stmt.excluded.quoteVolume
+            }
+        )
+
+        self.db.execute(stmt)
+        self.db.commit()
+
+        print(f" Saved {len(records)} BTC ticker records to database")
+        return len(records)
+
+
+    def save_btc_candlestick_db(self, df: pd.DataFrame) -> int:
+        records = []
+        for _, row in df.iterrows():
+            record = {
+                'open_time': row['open_time'],
+                'open': float(row['open']),
+                'high': float(row['high']),
+                'low': float(row['low']),
+                'close': float(row['close']),
+                'close_time': row['close_time'],
+                'volume': int(row['volume']),
+                'quote_volume': int(row['quote_volume']),
+                'num_trades': int(row['num_trades']),
+                'taker_buy_base': int(row['taker_buy_base']),
+                'taker_buy_quote': int(row['taker_buy_quote']),
+            }
+            records.append(record)
+
+        stmt = insert(BTCCandlestickModel).values(records)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['open_time'],
+            set_={
+                'open': stmt.excluded.open,
+                'high': stmt.excluded.high,
+                'low': stmt.excluded.low,
+                'close': stmt.excluded.close,
+                'volume': stmt.excluded.volume,
+                'quote_volume': stmt.excluded.quote_volume,
+                'num_trades': stmt.excluded.num_trades,
+                'taker_buy_base': stmt.excluded.taker_buy_base,
+                'taker_buy_quote': stmt.excluded.taker_buy_quote,
+                'close_time': stmt.excluded.close_time,
+            }
+        )
+
+        self.db.execute(stmt)
+        self.db.commit()
+
+        print(f" Saved {len(records)} BTC candlestick records to database")
+        return len(records)
+
+
     def save_news_data(self, articles: List[Dict]) -> int:
         records = []
         for article in articles:
@@ -192,30 +267,33 @@ class DataManager:
 
         record = {
             'timestamp': timestamp,
+            # Trend
             'ema20': indicators.get('ema20'),
             'ema50': indicators.get('ema50'),
-            'ema200': indicators.get('ema200'),
+            'high_14d': indicators.get('high_14d'),
+            'low_14d': indicators.get('low_14d'),
+            # Momentum
             'macd_line': indicators.get('macd_line'),
             'macd_signal': indicators.get('macd_signal'),
             'macd_histogram': indicators.get('macd_histogram'),
             'rsi14': indicators.get('rsi14'),
             'rsi_divergence_type': indicators.get('rsi_divergence_type'),
             'rsi_divergence_strength': indicators.get('rsi_divergence_strength'),
+            # Volatility
             'bb_upper': indicators.get('bb_upper'),
             'bb_lower': indicators.get('bb_lower'),
+            'bb_squeeze_ratio': indicators.get('bb_squeeze_ratio'),
+            'bb_squeeze_active': str(indicators.get('bb_squeeze_active', False)),
             'atr': indicators.get('atr'),
             'atr_percent': indicators.get('atr_percent'),
+            # Volume
             'volume_ma20': indicators.get('volume_ma20'),
             'volume_current': indicators.get('volume_current'),
             'volume_ratio': indicators.get('volume_ratio'),
             'volume_classification': indicators.get('volume_classification'),
-            'volume_trading_allowed': str(indicators.get('volume_trading_allowed', True)),
-            'volume_confidence_multiplier': indicators.get('volume_confidence_multiplier'),
+            'weighted_buy_pressure': indicators.get('weighted_buy_pressure'),
             'days_since_volume_spike': indicators.get('days_since_volume_spike'),
-            'kijun_sen': indicators.get('kijun_sen'),
-            'high_14d': indicators.get('high_14d'),
-            'low_14d': indicators.get('low_14d'),
-            'stoch_rsi': indicators.get('stoch_rsi'),
+            # Support/Resistance
             'support1': indicators.get('support1'),
             'support1_percent': indicators.get('support1_percent'),
             'support2': indicators.get('support2'),
@@ -224,42 +302,43 @@ class DataManager:
             'resistance1_percent': indicators.get('resistance1_percent'),
             'resistance2': indicators.get('resistance2'),
             'resistance2_percent': indicators.get('resistance2_percent'),
-            'fib_level_382': indicators.get('fib_level_382'),
-            'fib_level_618': indicators.get('fib_level_618'),
-            'pivot_weekly': indicators.get('pivot_weekly'),
-            'momentum_24h': indicators.get('momentum_24h'),
-            'range_position_24h': indicators.get('range_position_24h'),
-            'volume_surge_24h': indicators.get('volume_surge_24h'),
+            # BTC Correlation
+            'btc_price_change_30d': indicators.get('btc_price_change_30d'),
+            'btc_trend': indicators.get('btc_trend'),
+            'sol_btc_correlation': indicators.get('sol_btc_correlation'),
         }
 
         stmt = insert(IndicatorsModel).values(record)
         stmt = stmt.on_conflict_do_update(
             index_elements=['timestamp'],
             set_={
+                # Trend
                 'ema20': stmt.excluded.ema20,
                 'ema50': stmt.excluded.ema50,
-                'ema200': stmt.excluded.ema200,
+                'high_14d': stmt.excluded.high_14d,
+                'low_14d': stmt.excluded.low_14d,
+                # Momentum
                 'macd_line': stmt.excluded.macd_line,
                 'macd_signal': stmt.excluded.macd_signal,
                 'macd_histogram': stmt.excluded.macd_histogram,
                 'rsi14': stmt.excluded.rsi14,
                 'rsi_divergence_type': stmt.excluded.rsi_divergence_type,
                 'rsi_divergence_strength': stmt.excluded.rsi_divergence_strength,
+                # Volatility
                 'bb_upper': stmt.excluded.bb_upper,
                 'bb_lower': stmt.excluded.bb_lower,
+                'bb_squeeze_ratio': stmt.excluded.bb_squeeze_ratio,
+                'bb_squeeze_active': stmt.excluded.bb_squeeze_active,
                 'atr': stmt.excluded.atr,
                 'atr_percent': stmt.excluded.atr_percent,
+                # Volume
                 'volume_ma20': stmt.excluded.volume_ma20,
                 'volume_current': stmt.excluded.volume_current,
                 'volume_ratio': stmt.excluded.volume_ratio,
                 'volume_classification': stmt.excluded.volume_classification,
-                'volume_trading_allowed': stmt.excluded.volume_trading_allowed,
-                'volume_confidence_multiplier': stmt.excluded.volume_confidence_multiplier,
+                'weighted_buy_pressure': stmt.excluded.weighted_buy_pressure,
                 'days_since_volume_spike': stmt.excluded.days_since_volume_spike,
-                'kijun_sen': stmt.excluded.kijun_sen,
-                'high_14d': stmt.excluded.high_14d,
-                'low_14d': stmt.excluded.low_14d,
-                'stoch_rsi': stmt.excluded.stoch_rsi,
+                # Support/Resistance
                 'support1': stmt.excluded.support1,
                 'support1_percent': stmt.excluded.support1_percent,
                 'support2': stmt.excluded.support2,
@@ -268,12 +347,10 @@ class DataManager:
                 'resistance1_percent': stmt.excluded.resistance1_percent,
                 'resistance2': stmt.excluded.resistance2,
                 'resistance2_percent': stmt.excluded.resistance2_percent,
-                'fib_level_382': stmt.excluded.fib_level_382,
-                'fib_level_618': stmt.excluded.fib_level_618,
-                'pivot_weekly': stmt.excluded.pivot_weekly,
-                'momentum_24h': stmt.excluded.momentum_24h,
-                'range_position_24h': stmt.excluded.range_position_24h,
-                'volume_surge_24h': stmt.excluded.volume_surge_24h,
+                # BTC Correlation
+                'btc_price_change_30d': stmt.excluded.btc_price_change_30d,
+                'btc_trend': stmt.excluded.btc_trend,
+                'sol_btc_correlation': stmt.excluded.sol_btc_correlation,
             }
         )
 
@@ -285,32 +362,27 @@ class DataManager:
 
 
     def save_technical_analysis(self, data: Dict) -> int:
+        """Save technical analysis with v2 schema."""
         from app.database.models.analysis import TechnicalAnalyst
-        
-        record = {
-            'recommendation': data.get('recommendation'),
-            'confidence': data.get('confidence'),
-            'confidence_breakdown': data.get('confidence_breakdown'),
-            'timeframe': data.get('timeframe'),
-            'entry_level': data.get('entry_level'),
-            'stop_loss': data.get('stop_loss'),
-            'take_profit': data.get('take_profit'),
-            'key_signals': data.get('key_signals'),
-            'reasoning': data.get('reasoning'),
-            'recommendation_summary': data.get('recommendation_summary'),
-            'watch_list': data.get('watch_list'),
-            'thinking': data.get('thinking')
-        }
-        
-        stmt = insert(TechnicalAnalyst).values(record)
-        # stmt = stmt.on_conflict_do_update(
-        #     index_elements=['created_at'],
-        #     set_=record
-        # )
-        
-        self.db.execute(stmt)
+
+        record = TechnicalAnalyst(
+            timestamp=data.get('timestamp'),
+            recommendation=data.get('recommendation'),
+            confidence=data.get('confidence'),
+            market_condition=data.get('market_condition'),
+            summary=data.get('summary'),
+            thinking=data.get('thinking'),
+            analysis=data.get('analysis'),
+            trade_setup=data.get('trade_setup'),
+            action_plan=data.get('action_plan'),
+            watch_list=data.get('watch_list'),
+            invalidation=data.get('invalidation'),
+            confidence_reasoning=data.get('confidence_reasoning'),
+        )
+
+        self.db.add(record)
         self.db.commit()
-        print(f"✅ Saved Technical Analysis {datetime.now()}")
+        print(f"💾 Saved technical analysis: {data.get('recommendation')} @ {data.get('confidence'):.0%} confidence")
         return 1
 
 

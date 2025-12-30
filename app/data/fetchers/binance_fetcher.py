@@ -7,8 +7,9 @@ from typing import Optional
 
 class BinanceFetcher:
     BASE_URL = "https://api.binance.com/api/v3"
-    SYMBOL = "SOLUSDT"  
-    
+    SYMBOL = "SOLUSDT"
+    BTC_SYMBOL = "BTCUSDT"  
+
     def __init__(self):
         self.session = requests.Session()
     
@@ -31,7 +32,6 @@ class BinanceFetcher:
         params = {
             'symbol': self.SYMBOL
         }
-
         try:
             ticker = self._make_request('ticker/24hr', params)
             if not ticker:
@@ -112,7 +112,6 @@ class BinanceFetcher:
 
             df = pd.DataFrame(records)
             print(f"Fetched {len(df)} candles - with {interval} interval")
-            print(f"candles data: \n {df}" )
             return df
 
         except Exception as e:
@@ -146,23 +145,137 @@ class BinanceFetcher:
             return False
 
 
+
+    def fetch_btc_ticker24h(self) -> pd.DataFrame:
+        params = {
+            'symbol': self.BTC_SYMBOL
+        }
+        try:
+            ticker = self._make_request('ticker/24hr', params)
+            if not ticker:
+                print("No BTC ticker data received")
+                return pd.DataFrame()
+
+            record = {
+                'lastPrice': float(ticker.get('lastPrice', 0)),
+                'priceChangePercent': float(ticker.get('priceChangePercent', 0)),
+                'openPrice': float(ticker.get('openPrice', 0)),
+                'highPrice': float(ticker.get('highPrice', 0)),
+                'lowPrice': float(ticker.get('lowPrice', 0)),
+                'volume': float(ticker.get('volume', 0)),
+                'quoteVolume': float(ticker.get('quoteVolume', 0)),
+                'timestamp': datetime.now()
+            }
+
+            df = pd.DataFrame([record])
+            return df
+        except Exception as e:
+            print(f"Error parsing BTC ticker data: {str(e)}")
+            return pd.DataFrame()
+
+
+    def fetch_btc_klines(self, interval: str = '1d', limit: int = 30) -> pd.DataFrame:
+        params = {
+            'symbol': self.BTC_SYMBOL,
+            'interval': interval,
+            'limit': limit
+        }
+
+        try:
+            klines = self._make_request('klines', params)
+
+            if not klines:
+                print("No BTC klines data received")
+                return pd.DataFrame()
+
+            records = []
+            for kline in klines:
+                record = {
+                    'open_time': datetime.fromtimestamp(kline[0] / 1000),
+                    'open': float(kline[1]),
+                    'high': float(kline[2]),
+                    'low': float(kline[3]),
+                    'close': float(kline[4]),
+                    'volume': float(kline[5]),
+                    'close_time': datetime.fromtimestamp(kline[6] / 1000),
+                    'quote_volume': float(kline[7]),
+                    'num_trades': int(kline[8]),
+                    'taker_buy_base': float(kline[9]),
+                    'taker_buy_quote': float(kline[10]),
+                }
+                records.append(record)
+
+            df = pd.DataFrame(records)
+            print(f"Fetched {len(df)} BTC candles - {interval} interval")
+            return df
+
+        except Exception as e:
+            print(f"Error parsing BTC klines: {str(e)}")
+            return pd.DataFrame()
+
+
+    def fetch_and_save_btc_ticker_db(self) -> bool:
+        try:
+            import sys
+            import os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            from database.data_manager import DataManager
+
+            df = self.fetch_btc_ticker24h()
+
+            if df.empty:
+                print("Failed BTC ticker 24h fetching")
+                return False
+
+            with DataManager() as manager:
+                manager.save_btc_ticker_db(df)
+            return True
+
+        except Exception as e:
+            print(f"Error saving BTC ticker data to DB: {str(e)}")
+            return False
+
+
+    def fetch_and_save_btc_klines_db(self, interval: str = '1d', limit: int = 30) -> bool:
+        try:
+            import sys
+            import os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            from database.data_manager import DataManager
+
+            df = self.fetch_btc_klines(interval=interval, limit=limit)
+
+            if df.empty:
+                print("Failed BTC klines fetching")
+                return False
+
+            with DataManager() as manager:
+                manager.save_btc_candlestick_db(df)
+            return True
+
+        except Exception as e:
+            print(f"Error saving BTC klines data to DB: {str(e)}")
+            return False
+
+
 def main():
-    
+
     fetcher = BinanceFetcher()
-    
+
     # 90 days of daily candles (one-time setup):
-    # fetcher.fetch_klines(interval='1d', limit=90)
+    fetcher.fetch_and_save_klines_db(interval='1d', limit=90)
 
     # Today's 4h candles (3x daily):
-    # fetcher.fetch_klines(interval='4h', limit=6)
+    fetcher.fetch_and_save_klines_db(interval='4h', limit=6)
 
-
-    # fetcher.fetch_and_save_klines_db(interval='4h', limit=6)
-    # fetcher.fetch_and_save_klines_db()
 
     fetcher.fetch_and_save_ticker_db()
 
-    
+    # One-time: Fetch 30 days of BTC history
+    fetcher.fetch_and_save_btc_klines_db(interval='1d', limit=30)
+
+    # Regular: Update BTC ticker
+    fetcher.fetch_and_save_btc_ticker_db()
 
 
 if __name__ == "__main__":

@@ -47,21 +47,19 @@ def get_latest_analysis():
         if not technical or not news or not reflection or not trader:
             raise HTTPException(status_code=404, detail="No analysis data found in database")
 
-        # Convert DB models to dictionaries
         technical_data = {
             "timestamp": technical.timestamp if technical.timestamp else technical.created_at.isoformat(),
             "recommendation": technical.recommendation,
             "confidence": technical.confidence,
-            "confidence_breakdown": technical.confidence_breakdown,
-            "timeframe": technical.timeframe,
-            "key_signals": technical.key_signals,
-            "entry_level": technical.entry_level,
-            "stop_loss": technical.stop_loss,
-            "take_profit": technical.take_profit,
-            "reasoning": technical.reasoning,
-            "recommendation_summary": technical.recommendation_summary,
+            "market_condition": technical.market_condition,
+            "summary": technical.summary,
+            "thinking": technical.thinking,
+            "analysis": technical.analysis,
+            "trade_setup": technical.trade_setup,
+            "action_plan": technical.action_plan,
             "watch_list": technical.watch_list,
-            "thinking": technical.thinking
+            "invalidation": technical.invalidation,
+            "confidence_reasoning": technical.confidence_reasoning,
         }
 
         news_data = {
@@ -127,24 +125,16 @@ def get_latest_analysis():
 
 @router.post("/sol/analyse")
 def analyse_trade(job_id: Optional[str] = Query(None)):
-    """
-    Run full analysis with real-time progress tracking.
-    Lambda-compatible: runs synchronously, writes progress to PostgreSQL.
-    Frontend polls progress from database.
-    """
     db = None
     if not job_id:
         job_id = str(uuid.uuid4())
 
     try:
-        # Progress callback that writes to PostgreSQL
         def progress_callback(step: str, status: str, message: str):
             progress_store.add_progress(job_id, step, status, message)
 
-        # Initialize progress tracking
         tracker = ProgressTracker(callback=progress_callback)
 
-        # Step 1: Refresh market data
         progress_store.add_progress(job_id, "refresh_data", "started",
                                    "Fetching latest market data from Binance and news sources...")
         try:
@@ -156,21 +146,16 @@ def analyse_trade(job_id: Optional[str] = Query(None)):
                                        "Data refresh partial, proceeding with existing data")
             print(f"Data refresh failed, proceeding with existing data: {str(refresh_err)}")
 
-        # Step 2: Run trading graph with progress tracking
         graph = TradingGraph(progress_tracker=tracker)
         result = graph.run()
 
-        # Step 3: Prepare response
         db = get_db_session()
         timestamp = datetime.now()
 
-        # Sanitize all text fields to remove control characters
         sanitized_result = sanitize_dict(result)
 
-        # Mark analysis as complete
         progress_store.add_progress(job_id, "complete", "completed", "Analysis complete")
 
-        # Clean up old progress records (optional, runs async in production)
         try:
             progress_store.cleanup_old_progress(days=1)
         except:
@@ -185,7 +170,6 @@ def analyse_trade(job_id: Optional[str] = Query(None)):
         )
 
     except Exception as e:
-        # Log error to progress
         progress_store.add_progress(job_id, "error", "error", f"Analysis failed: {str(e)}")
 
         if db:
@@ -202,20 +186,17 @@ def get_analysis_progress(job_id: str):
     Get real-time progress updates for an analysis job.
     Reads progress from PostgreSQL - works perfectly with Lambda.
     """
-    try:
-        progress = progress_store.get_progress(job_id)
+    progress = progress_store.get_progress(job_id)
 
-        # Check if analysis is complete
-        is_complete = any(p.get('step') == 'complete' and p.get('status') == 'completed' for p in progress)
-        has_error = any(p.get('step') == 'error' and p.get('status') == 'error' for p in progress)
+    # Check if analysis is complete
+    is_complete = any(p.get('step') == 'complete' and p.get('status') == 'completed' for p in progress)
+    has_error = any(p.get('step') == 'error' and p.get('status') == 'error' for p in progress)
 
-        status = 'completed' if is_complete else ('error' if has_error else 'running')
+    status = 'completed' if is_complete else ('error' if has_error else 'running')
 
-        return {
-            "job_id": job_id,
-            "status": status,
-            "progress": progress
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch progress: {str(e)}")
+    return {
+        "job_id": job_id,
+        "status": status,
+        "progress": progress
+    }
 
