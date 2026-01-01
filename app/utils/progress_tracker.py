@@ -20,7 +20,7 @@ class ProgressTracker:
         self.steps = [
             "refresh_data",
             "technical_agent",
-            "news_agent",
+            "sentiment_agent",
             "reflection_agent",
             "trader_agent",
             "complete"
@@ -56,13 +56,22 @@ class ProgressTracker:
         """Complete technical agent"""
         self.emit("technical_agent", "completed", "Technical analysis completed")
 
+    def start_sentiment(self):
+        """Start sentiment agent"""
+        self.emit("sentiment_agent", "started", "Running Sentiment Analysis Agent (CFGI + News)...")
+
+    def complete_sentiment(self):
+        """Complete sentiment agent"""
+        self.emit("sentiment_agent", "completed", "Sentiment analysis completed")
+
+    # Backward compatibility aliases
     def start_news(self):
-        """Start news agent"""
-        self.emit("news_agent", "started", "Running News Sentiment Agent...")
+        """Deprecated: Use start_sentiment() instead"""
+        self.start_sentiment()
 
     def complete_news(self):
-        """Complete news agent"""
-        self.emit("news_agent", "completed", "News analysis completed")
+        """Deprecated: Use complete_sentiment() instead"""
+        self.complete_sentiment()
 
     def start_reflection(self):
         """Start reflection agent"""

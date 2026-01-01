@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     COINGECKO_API_KEY: Optional[str] = None
     SOLSCAN_API_KEY: Optional[str] = None
     HELIUS_API_KEY: Optional[str] = None
+    CFGI_API_KEY: Optional[str] = None  # CFGI Fear & Greed Index API
 
     # Database
     DATABASE_URL: str

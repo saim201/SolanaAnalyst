@@ -1,13 +1,17 @@
 # Data manager for saving fetched data to PostgreSQL
 
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict
 from sqlalchemy.dialects.postgresql import insert
 from app.database.models.news import NewsModel
+from app.database.models.cfgi import CFGIData
 from app.database.models.indicators import IndicatorsModel
 from app.database.models.candlestick import CandlestickModel, CandlestickIntradayModel, TickerModel, BTCTickerModel, BTCCandlestickModel
 from app.database.config import get_db_session
+
+# CFGI cache duration
+CFGI_CACHE_HOURS = 4
 
 
 class DataManager:
@@ -388,34 +392,54 @@ class DataManager:
 
 
 
-    def save_news_analysis(self, data: Dict) -> int:
-        from app.database.models.analysis import NewsAnalyst
-        
+    def save_sentiment_analysis(self, data: Dict) -> int:
+        """Save sentiment analysis (combining CFGI + News) to database."""
+        from app.database.models.analysis import SentimentAnalyst
+
+        # Extract nested data
+        market_fear_greed = data.get('market_fear_greed', {})
+        news_sentiment = data.get('news_sentiment', {})
+
         record = {
-            'overall_sentiment': data.get('overall_sentiment'),
-            'sentiment_label': data.get('sentiment_label'),
+            # Overall signal
+            'signal': data.get('signal'),
             'confidence': data.get('confidence'),
+
+            # CFGI data
+            'cfgi_score': market_fear_greed.get('score'),
+            'cfgi_classification': market_fear_greed.get('classification'),
+            'cfgi_social': market_fear_greed.get('social'),
+            'cfgi_whales': market_fear_greed.get('whales'),
+            'cfgi_trends': market_fear_greed.get('trends'),
+            'cfgi_interpretation': market_fear_greed.get('interpretation'),
+
+            # News sentiment
+            'news_sentiment_score': news_sentiment.get('score'),
+            'news_sentiment_label': news_sentiment.get('label'),
+            'news_catalysts_count': news_sentiment.get('catalysts_count'),
+            'news_risks_count': news_sentiment.get('risks_count'),
+
+            # Events and analysis
             'key_events': data.get('key_events'),
-            'all_recent_news': data.get('all_recent_news'),
-            'event_summary': data.get('event_summary'),
             'risk_flags': data.get('risk_flags'),
-            'stance': data.get('stance'),
-            'suggested_timeframe': data.get('suggested_timeframe'),
-            'recommendation_summary': data.get('recommendation_summary'),
+            'summary': data.get('summary'),
             'what_to_watch': data.get('what_to_watch'),
             'invalidation': data.get('invalidation'),
+            'suggested_timeframe': data.get('suggested_timeframe'),
+
+            # Metadata
             'thinking': data.get('thinking')
         }
-        
-        stmt = insert(NewsAnalyst).values(record)
+
+        stmt = insert(SentimentAnalyst).values(record)
         # stmt = stmt.on_conflict_do_update(
         #     index_elements=['timestamp'],
         #     set_=record
         # )
-        
+
         self.db.execute(stmt)
         self.db.commit()
-        print(f"✅ Saved News Analysis {datetime.now()}")
+        print(f"✅ Saved Sentiment Analysis {datetime.now()}")
         return 1
 
 
@@ -473,6 +497,63 @@ class DataManager:
         print(f"✅ Saved Trader Decision for {timestamp}")
         return 1
 
+
+    def get_latest_cfgi(self):
+        """Get most recent CFGI data from database."""
+        return self.db.query(CFGIData).order_by(CFGIData.fetched_at.desc()).first()
+
+    def should_fetch_cfgi(self) -> bool:
+        """Check if we should fetch fresh CFGI data (True if no data or cache >4 hours old)."""
+        latest = self.get_latest_cfgi()
+        if latest is None:
+            return True
+        cache_age = datetime.now(timezone.utc) - latest.fetched_at.replace(tzinfo=timezone.utc)
+        return cache_age > timedelta(hours=CFGI_CACHE_HOURS)
+
+    def save_cfgi_data(self, data) -> None:
+        """Save CFGI data to database."""
+        cfgi_record = CFGIData(
+            score=data.score,
+            classification=data.classification,
+            social=data.social,
+            whales=data.whales,
+            trends=data.trends,
+            sol_price=data.price,
+            cfgi_timestamp=data.timestamp,
+            fetched_at=datetime.now(timezone.utc)
+        )
+        self.db.add(cfgi_record)
+        self.db.commit()
+        print(f"💾 Saved CFGI data: {data.score} ({data.classification})")
+
+    def get_cfgi_with_cache(self):
+        """
+        Get CFGI data, fetching fresh only if cache is stale (>4 hours).
+        This is the main method to call from sentiment agent.
+        Returns dict or None.
+        """
+        if self.should_fetch_cfgi():
+            print("📡 CFGI cache stale, fetching fresh data...")
+            try:
+                from app.data.fetchers.cfgi_fetcher import CFGIFetcher
+                fetcher = CFGIFetcher()
+                fresh_data = fetcher.fetch()
+
+                if fresh_data:
+                    self.save_cfgi_data(fresh_data)
+                    return self.get_latest_cfgi().to_dict()
+                else:
+                    print("⚠️ Fresh fetch failed, using stale cache if available")
+                    latest = self.get_latest_cfgi()
+                    return latest.to_dict() if latest else None
+            except Exception as e:
+                print(f"❌ CFGI fetch error: {e}")
+                latest = self.get_latest_cfgi()
+                return latest.to_dict() if latest else None
+        else:
+            print("✅ Using cached CFGI data (less than 4 hours old)")
+            latest = self.get_latest_cfgi()
+            return latest.to_dict() if latest else None
 
     def close(self):
         if self.db:

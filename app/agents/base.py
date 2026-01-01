@@ -31,41 +31,47 @@ class technicalOutput(TypedDict):
     thinking: str
 
 
-class NewsItem(TypedDict):
-    title: str
-    published_at: str
-    url: str
-    source: str
+class MarketFearGreed(TypedDict):
+    score: float
+    classification: str
+    social: Optional[float]
+    whales: Optional[float]
+    trends: Optional[float]
+    interpretation: str
+
+class NewsSentiment(TypedDict):
+    score: float
+    label: str
+    catalysts_count: int
+    risks_count: int
 
 class KeyEvent(TypedDict):
     title: str
     published_at: str
     url: str
     type: str
-    source_credibility: str
-    news_age_hours: int
     impact: str
-    reasoning: str
+    source: str
 
-class EventSummary(TypedDict):
-    actionable_catalysts: int
-    hype_noise: int
-    critical_risks: int
-
-class NewsOutput(TypedDict):
-    overall_sentiment: float
-    sentiment_label: str
+class SentimentOutput(TypedDict):
+    """
+    Combined CFGI Fear & Greed + News sentiment analysis.
+    Replaces the old NewsOutput schema.
+    """
+    signal: str  # BULLISH, BEARISH, NEUTRAL, etc.
     confidence: float
-    all_recent_news: List[NewsItem]
+    market_fear_greed: MarketFearGreed
+    news_sentiment: NewsSentiment
     key_events: List[KeyEvent]
-    event_summary: EventSummary
     risk_flags: List[str]
-    stance: str
-    suggested_timeframe: str
-    recommendation_summary: str
+    summary: str
     what_to_watch: List[str]
     invalidation: str
+    suggested_timeframe: str
     thinking: str
+
+# Backward compatibility alias
+NewsOutput = SentimentOutput
 
 
 
@@ -148,9 +154,11 @@ class TraderOutput(TypedDict):
 
 class AgentState(TypedDict, total=False):
     technical: Optional[technicalOutput]
-    news: Optional[NewsOutput]
+    sentiment: Optional[SentimentOutput]
     reflection: Optional[ReflectionOutput]
     trader: Optional[TraderOutput]
+    # Backward compatibility alias
+    news: Optional[SentimentOutput]
 
 
 

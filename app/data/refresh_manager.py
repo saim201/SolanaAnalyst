@@ -9,6 +9,7 @@ if backend_dir not in sys.path:
 
 from app.data.fetchers.binance_fetcher import BinanceFetcher
 from app.data.fetchers.rss_news_fetcher import RSSNewsFetcher
+from app.data.fetchers.cfgi_fetcher import CFGIFetcher
 from app.data.indicators import IndicatorsProcessor
 from app.database.config import get_db_session
 from app.database.data_manager import DataManager
@@ -18,10 +19,10 @@ from app.database.models.candlestick import CandlestickModel, TickerModel, BTCCa
 class RefreshManager:
     @staticmethod
     def refresh_all_data():
-        print(f"\n Refreshing data - {datetime.now().isoformat()}")
+        print(f"\n🔄 Refreshing data - {datetime.now().isoformat()}")
 
         success_count = 0
-        total_sources = 6 
+        total_sources = 7  # Updated from 6 to 7 (added CFGI)
 
         binance_success = RefreshManager._fetch_candlestick_data()
         if binance_success:
@@ -41,6 +42,11 @@ class RefreshManager:
 
         news_success = RefreshManager._fetch_news_data()
         if news_success:
+            success_count += 1
+
+        # CFGI Fear & Greed Index (with smart caching)
+        cfgi_success = RefreshManager._fetch_cfgi_data()
+        if cfgi_success:
             success_count += 1
 
         indicators_success = RefreshManager._calculate_and_save_indicators()
@@ -105,7 +111,25 @@ class RefreshManager:
         except Exception as e:
             print(f"News fetch error: {str(e)}")
             return False
-    
+
+    @staticmethod
+    def _fetch_cfgi_data() -> bool:
+        """Fetch CFGI Fear & Greed Index (with smart 4-hour caching)."""
+        try:
+            # Check if we need to fetch (only if cache is stale)
+            dm = DataManager()
+            if not dm.should_fetch_cfgi():
+                print("📦 CFGI cache still fresh (< 4 hours old), skipping fetch")
+                dm.close()
+                return True
+            dm.close()
+
+            # Fetch fresh data and save
+            cfgi_fetcher = CFGIFetcher()
+            return cfgi_fetcher.fetch_and_save_to_db()
+        except Exception as e:
+            print(f"⚠️  CFGI fetch error: {str(e)}")
+            return False
 
     @staticmethod
     def _calculate_and_save_indicators() -> bool:

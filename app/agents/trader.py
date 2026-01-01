@@ -52,22 +52,22 @@ Watch List:
 </technical_analysis>
 
 <news_analysis>
-Sentiment: {news_sentiment:.2%} ({news_label})
-News Confidence: {news_confidence:.2%}
+Sentiment: {sentiment_score:.2%} ({sentiment_label})
+News Confidence: {sentiment_confidence:.2%}
 
 Key Events:
-{news_key_events}
+{sentiment_key_events}
 
 Risk Flags:
-{news_risk_flags}
+{sentiment_risk_flags}
 
 News Reasoning: {news_reasoning}
 
-News Summary: {news_summary}
+News Summary: {sentiment_summary}
 
-What to Watch: {news_watch}
+What to Watch: {sentiment_watch}
 
-Invalidation: {news_invalidation}
+Invalidation: {sentiment_invalidation}
 </news_analysis>
 
 <reflection_analysis>
@@ -98,7 +98,7 @@ YOUR RESPONSE MUST USE THIS EXACT FORMAT:
 PHASE 1: CONSENSUS CHECK
 Look at the three recommendations:
 - Technical says: {tech_recommendation} (confidence: {tech_confidence:.0%})
-- News says: {news_label} (confidence: {news_confidence:.0%})
+- News says: {sentiment_label} (confidence: {sentiment_confidence:.0%})
 - Reflection says: {reflection_recommendation} (confidence: {reflection_confidence:.0%})
 
 Do they agree or conflict?
@@ -116,7 +116,7 @@ Calculate the weighted average using crypto swing trading weights:
 - News weight: 30% (crypto overreacts to news/catalysts)
 - Reflection weight: 30% (synthesis + blind spot detection)
 
-Formula: (0.40 × {tech_confidence}) + (0.30 × {news_confidence}) + (0.30 × {reflection_confidence})
+Formula: (0.40 × {tech_confidence}) + (0.30 × {sentiment_confidence}) + (0.30 × {reflection_confidence})
 
 Show your calculation step-by-step.
 Example: "(0.40 × 0.72) + (0.30 × 0.65) + (0.30 × 0.57) = 0.36 + 0.23 + 0.09 = 0.68"
@@ -281,22 +281,30 @@ class TraderAgent(BaseAgent):
         tech_key_signals_formatted = '\n'.join([f"  - {signal}" for signal in tech_key_signals[:5]]) if tech_key_signals else "No signals provided"
         tech_watchlist_formatted = json.dumps(tech_watchlist, indent=2) if tech_watchlist else "No watch list provided"
 
-        news = state.get('news', {})
-        news_sentiment = float(news.get('overall_sentiment', 0.5))
-        news_label = news.get('sentiment_label', 'NEUTRAL')
-        news_confidence = float(news.get('confidence', 0.5))
-        news_key_events = news.get('key_events', [])
-        news_risk_flags = news.get('risk_flags', [])
-        news_reasoning = news.get('reasoning', 'No news analysis available')
-        news_summary = news.get('recommendation_summary', 'No summary provided')
-        news_watch = news.get('what_to_watch', [])
-        news_invalidation = news.get('invalidation', 'Not specified')
-        news_key_events_formatted = '\n'.join([
+        sentiment = state.get('sentiment', {})
+        # Use new SentimentAgent schema
+        sentiment_signal = sentiment.get('signal', 'NEUTRAL')
+        sentiment_confidence = float(sentiment.get('confidence', 0.5))
+        sentiment_market_fear_greed = sentiment.get('market_fear_greed', {})
+        sentiment_news_data = sentiment.get('news_sentiment', {})
+        sentiment_score = float(sentiment_news_data.get('score', 0.5))
+        sentiment_label = sentiment_news_data.get('label', 'NEUTRAL')
+        sentiment_key_events = sentiment.get('key_events', [])
+        sentiment_risk_flags = sentiment.get('risk_flags', [])
+        sentiment_summary = sentiment.get('summary', 'No summary provided')
+        sentiment_watch = sentiment.get('what_to_watch', [])
+        sentiment_invalidation = sentiment.get('invalidation', 'Not specified')
+
+        # Format CFGI data for context
+        cfgi_score = sentiment_market_fear_greed.get('score', 50)
+        cfgi_classification = sentiment_market_fear_greed.get('classification', 'Neutral')
+        cfgi_interpretation = sentiment_market_fear_greed.get('interpretation', 'No CFGI data')
+        sentiment_key_events_formatted = '\n'.join([
             f"  - {event.get('title', 'Unknown')} ({event.get('type', 'Unknown')}) - {event.get('impact', 'Unknown')}: {event.get('reasoning', 'No reasoning')}"
-            for event in news_key_events[:5] # top 5 only
-        ]) if news_key_events else "No key events"
-        news_risk_flags_formatted = '\n'.join([f"  - {flag}" for flag in news_risk_flags]) if news_risk_flags else "No risk flags"
-        news_watch_formatted = '\n'.join([f"  - {item}" for item in news_watch]) if news_watch else "Nothing specified"
+            for event in sentiment_key_events[:5] # top 5 only
+        ]) if sentiment_key_events else "No key events"
+        sentiment_risk_flags_formatted = '\n'.join([f"  - {flag}" for flag in sentiment_risk_flags]) if sentiment_risk_flags else "No risk flags"
+        sentiment_watch_formatted = '\n'.join([f"  - {item}" for item in sentiment_watch]) if sentiment_watch else "Nothing specified"
 
         reflection = state.get('reflection', {})
         reflection_recommendation = reflection.get('final_recommendation', 'HOLD')
@@ -323,15 +331,15 @@ class TraderAgent(BaseAgent):
             tech_reasoning=tech_reasoning,
             tech_summary=tech_summary,
             tech_watchlist=tech_watchlist_formatted,
-            news_sentiment=news_sentiment,
-            news_label=news_label,
-            news_confidence=news_confidence,
-            news_key_events=news_key_events_formatted,
-            news_risk_flags=news_risk_flags_formatted,
-            news_reasoning=news_reasoning,
-            news_summary=news_summary,
-            news_watch=news_watch_formatted,
-            news_invalidation=news_invalidation,
+            sentiment_score=sentiment_score,
+            sentiment_label=sentiment_label,
+            sentiment_confidence=sentiment_confidence,
+            sentiment_key_events=sentiment_key_events_formatted,
+            sentiment_risk_flags=sentiment_risk_flags_formatted,
+            news_reasoning=sentiment_summary,
+            sentiment_summary=sentiment_summary,
+            sentiment_watch=sentiment_watch_formatted,
+            sentiment_invalidation=sentiment_invalidation,
             reflection_recommendation=reflection_recommendation,
             reflection_confidence=reflection_confidence,
             reflection_agreement=reflection_agreement,

@@ -41,26 +41,26 @@ Confidence Breakdown:
 </technical_analysis>
 
 <news_analysis>
-Sentiment: {news_sentiment} ({news_label})
-Confidence: {news_confidence}
+Sentiment: {sentiment_score} ({sentiment_label})
+Confidence: {sentiment_confidence}
 
 Key Events:
-{news_key_events}
+{sentiment_key_events}
 
 Event Summary:
-{news_event_summary}
+{sentiment_event_summary}
 
 Risk Flags:
-{news_risk_flags}
+{sentiment_risk_flags}
 
 Reasoning: {news_reasoning}
 
-Summary: {news_summary}
+Summary: {sentiment_summary}
 
 What to Watch:
-{news_watch}
+{sentiment_watch}
 
-Invalidation: {news_invalidation}
+Invalidation: {sentiment_invalidation}
 </news_analysis>
 
 <analysis_framework>
@@ -214,31 +214,44 @@ class ReflectionAgent(BaseAgent):
         tech_watchlist = tech.get('watch_list', {})
         tech_confidence_breakdown = tech.get('confidence_breakdown', {})
 
-        news = state.get('news', {})
-        news_sentiment = news.get('overall_sentiment', 0.5)
-        news_label = news.get('sentiment_label', 'NEUTRAL')
-        news_confidence = news.get('confidence', 0.5)
-        news_key_events = news.get('key_events', [])
-        news_event_summary = news.get('event_summary', {})
-        news_risk_flags = news.get('risk_flags', [])
-        news_reasoning = news.get('reasoning', 'No reasoning provided')
-        news_summary = news.get('recommendation_summary', 'No summary provided')
-        news_watch = news.get('what_to_watch', [])
-        news_invalidation = news.get('invalidation', 'Not specified')
+        sentiment = state.get('sentiment', {})
+        # Use new SentimentAgent schema
+        sentiment_signal = sentiment.get('signal', 'NEUTRAL')
+        sentiment_confidence = sentiment.get('confidence', 0.5)
+        sentiment_market_fear_greed = sentiment.get('market_fear_greed', {})
+        sentiment_news_data = sentiment.get('news_sentiment', {})
+        sentiment_score = sentiment_news_data.get('score', 0.5)
+        sentiment_label = sentiment_news_data.get('label', 'NEUTRAL')
+        sentiment_key_events = sentiment.get('key_events', [])
+        sentiment_risk_flags = sentiment.get('risk_flags', [])
+        sentiment_summary = sentiment.get('summary', 'No summary provided')
+        sentiment_watch = sentiment.get('what_to_watch', [])
+        sentiment_invalidation = sentiment.get('invalidation', 'Not specified')
+
+        # Format CFGI data for prompt
+        cfgi_score = sentiment_market_fear_greed.get('score', 50)
+        cfgi_classification = sentiment_market_fear_greed.get('classification', 'Neutral')
+        cfgi_interpretation = sentiment_market_fear_greed.get('interpretation', 'No interpretation')
+
+        # Format news event summary (count of catalysts and risks)
+        sentiment_event_summary = {
+            'catalysts_count': sentiment_news_data.get('catalysts_count', 0),
+            'risks_count': sentiment_news_data.get('risks_count', 0)
+        }
 
         tech_key_signals_formatted = '\n'.join([f"  - {signal}" for signal in tech_key_signals])
         
         tech_watchlist_formatted = json.dumps(tech_watchlist, indent=2) if tech_watchlist else "No watch list provided"
         
         tech_confidence_breakdown_formatted = json.dumps(tech_confidence_breakdown, indent=2) if tech_confidence_breakdown else "No breakdown provided"
-        news_key_events_formatted = '\n'.join([
+        sentiment_key_events_formatted = '\n'.join([
             f"  - {event.get('title', 'Unknown')} ({event.get('type', 'Unknown')}) - {event.get('impact', 'Unknown')}"
-            for event in news_key_events[:5]  # Limit to top 5 events
-        ]) if news_key_events else "No key events"
+            for event in sentiment_key_events[:5]  # Limit to top 5 events
+        ]) if sentiment_key_events else "No key events"
         
-        news_event_summary_formatted = json.dumps(news_event_summary, indent=2) if news_event_summary else "No summary"
-        news_risk_flags_formatted = '\n'.join([f"  - {flag}" for flag in news_risk_flags]) if news_risk_flags else "No risk flags"
-        news_watch_formatted = '\n'.join([f"  - {item}" for item in news_watch]) if news_watch else "Nothing specified"
+        sentiment_event_summary_formatted = json.dumps(sentiment_event_summary, indent=2) if sentiment_event_summary else "No summary"
+        sentiment_risk_flags_formatted = '\n'.join([f"  - {flag}" for flag in sentiment_risk_flags]) if sentiment_risk_flags else "No risk flags"
+        sentiment_watch_formatted = '\n'.join([f"  - {item}" for item in sentiment_watch]) if sentiment_watch else "Nothing specified"
 
   
         full_prompt = SYSTEM_PROMPT + "\n\n" + REFLECTION_PROMPT.format(
@@ -252,16 +265,16 @@ class ReflectionAgent(BaseAgent):
             tech_summary=tech_summary,
             tech_watchlist=tech_watchlist_formatted,
             tech_confidence_breakdown=tech_confidence_breakdown_formatted,
-            news_sentiment=f"{news_sentiment:.2%}",
-            news_label=news_label,
-            news_confidence=f"{news_confidence:.2%}",
-            news_key_events=news_key_events_formatted,
-            news_event_summary=news_event_summary_formatted,
-            news_risk_flags=news_risk_flags_formatted,
-            news_reasoning=news_reasoning,
-            news_summary=news_summary,
-            news_watch=news_watch_formatted,
-            news_invalidation=news_invalidation
+            sentiment_score=f"{sentiment_score:.2%}",
+            sentiment_label=sentiment_label,
+            sentiment_confidence=f"{sentiment_confidence:.2%}",
+            sentiment_key_events=sentiment_key_events_formatted,
+            sentiment_event_summary=sentiment_event_summary_formatted,
+            sentiment_risk_flags=sentiment_risk_flags_formatted,
+            news_reasoning=sentiment_summary,
+            sentiment_summary=sentiment_summary,
+            sentiment_watch=sentiment_watch_formatted,
+            sentiment_invalidation=sentiment_invalidation
         )
 
         response = llm(
@@ -315,7 +328,7 @@ class ReflectionAgent(BaseAgent):
             # Fallback: Create minimal reflection output
             state['reflection'] = {
                 'recommendation': tech_recommendation,
-                'confidence': min(tech_confidence, news_confidence) * 0.8,
+                'confidence': min(tech_confidence, sentiment_confidence) * 0.8,
                 'agreement_analysis': {
                     'alignment_status': 'UNKNOWN',
                     'alignment_score': 0.5,
@@ -335,10 +348,10 @@ class ReflectionAgent(BaseAgent):
                     'invalidation_trigger': 'N/A'
                 },
                 'confidence_calculation': {
-                    'starting_confidence': min(tech_confidence, news_confidence),
+                    'starting_confidence': min(tech_confidence, sentiment_confidence),
                     'alignment_bonus': 0.0,
                     'risk_penalty': -0.2,
-                    'confidence': min(tech_confidence, news_confidence) * 0.8,
+                    'confidence': min(tech_confidence, sentiment_confidence) * 0.8,
                     'reasoning': 'Fallback due to parsing error'
                 },
                 'reasoning': f'Reflection analysis failed due to parsing error. Defaulting to conservative HOLD recommendation. Error: {str(e)[:100]}',

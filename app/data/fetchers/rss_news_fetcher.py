@@ -366,7 +366,14 @@ def main():
     fetcher = RSSNewsFetcher()
 
 
-    fetcher.fetch_and_save_to_db()
+    # fetcher.fetch_and_save_to_db()
+    articles = fetcher.fetch_all_sources(days_back=7)
+    print(f"Total articles: {len(articles)}")
+    for i, article in enumerate(articles[:5]):
+        print(f"\n[{i+1}] {article['title']}")
+        print(f"    Source: {article['source']}")
+        print(f"    Published: {article['published_at']}")
+        print(f"    Priority: {article['priority']}")
 
 
 if __name__ == "__main__":

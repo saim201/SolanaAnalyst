@@ -62,20 +62,31 @@ def get_latest_analysis():
             "confidence_reasoning": technical.confidence_reasoning,
         }
 
+        # Use new SentimentAnalyst schema (CFGI + News combined)
         news_data = {
             "timestamp": news.timestamp if news.timestamp else news.created_at.isoformat(),
-            "overall_sentiment": news.overall_sentiment,
-            "sentiment_label": news.sentiment_label,
+            "signal": news.signal,
             "confidence": news.confidence,
-            "all_recent_news": news.all_recent_news,
-            "key_events": news.key_events,
-            "event_summary": news.event_summary,
-            "risk_flags": news.risk_flags,
-            "stance": news.stance,
-            "suggested_timeframe": news.suggested_timeframe,
-            "recommendation_summary": news.recommendation_summary,
-            "what_to_watch": news.what_to_watch,
+            "market_fear_greed": {
+                "score": news.cfgi_score,
+                "classification": news.cfgi_classification,
+                "social": news.cfgi_social,
+                "whales": news.cfgi_whales,
+                "trends": news.cfgi_trends,
+                "interpretation": news.cfgi_interpretation
+            },
+            "news_sentiment": {
+                "score": news.news_sentiment_score,
+                "label": news.news_sentiment_label,
+                "catalysts_count": news.news_catalysts_count,
+                "risks_count": news.news_risks_count
+            },
+            "key_events": news.key_events or [],
+            "risk_flags": news.risk_flags or [],
+            "summary": news.summary,
+            "what_to_watch": news.what_to_watch or [],
             "invalidation": news.invalidation,
+            "suggested_timeframe": news.suggested_timeframe,
             "thinking": news.thinking
         }
 
@@ -163,7 +174,7 @@ def analyse_trade(job_id: Optional[str] = Query(None)):
 
         return TradeAnalysisResponse(
             technical_analysis = sanitized_result.get('technical', {}),
-            news_analysis = sanitized_result.get('news', {}),
+            news_analysis = sanitized_result.get('sentiment', {}),  # 'sentiment' but keep API field name for backward compatibility
             reflection_analysis = sanitized_result.get('reflection', {}),
             trader_analysis = sanitized_result.get('trader', {}),
             timestamp = timestamp.isoformat()

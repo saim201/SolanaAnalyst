@@ -31,30 +31,81 @@ class TechnicalAnalyst(Base):
     )
 
 
-class NewsAnalyst(Base):
-    __tablename__ = 'news_analyst'
+class SentimentAnalyst(Base):
+    """
+    Sentiment Agent output - combines CFGI Fear & Greed + News analysis.
+    """
+    __tablename__ = 'sentiment_analyst'
 
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))  
-    overall_sentiment = Column(Float, nullable=False)  
-    sentiment_label = Column(String(50), nullable=True)
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    # Overall signal
+    signal = Column(String(30), nullable=False)  # BULLISH, BEARISH, NEUTRAL
     confidence = Column(Float, nullable=False)
-    all_recent_news = Column(JSON, nullable=True)
+
+    # CFGI data
+    cfgi_score = Column(Float, nullable=True)
+    cfgi_classification = Column(String(20), nullable=True)
+    cfgi_social = Column(Float, nullable=True)
+    cfgi_whales = Column(Float, nullable=True)
+    cfgi_trends = Column(Float, nullable=True)
+    cfgi_interpretation = Column(Text, nullable=True)
+
+    # News sentiment (migrated from old NewsAnalyst)
+    news_sentiment_score = Column(Float, nullable=True)  # was overall_sentiment
+    news_sentiment_label = Column(String(30), nullable=True)  # was sentiment_label
+    news_catalysts_count = Column(Integer, nullable=True)
+    news_risks_count = Column(Integer, nullable=True)
+
+    # Events and analysis
     key_events = Column(JSON, nullable=True)
-    event_summary = Column(JSON, nullable=True)
     risk_flags = Column(JSON, nullable=True)
-    stance = Column(String(500), nullable=True)
-    suggested_timeframe = Column(String(50), nullable=True)
-    recommendation_summary = Column(String(500), nullable=True)
+    summary = Column(Text, nullable=True)
     what_to_watch = Column(JSON, nullable=True)
-    invalidation = Column(String(500), nullable=True)
-    thinking = Column(Text, nullable=False)
+    invalidation = Column(Text, nullable=True)
+    suggested_timeframe = Column(String(20), nullable=True)
+
+    # Metadata
+    thinking = Column(Text, nullable=True)
+    model_used = Column(String(50), default="claude-3-5-haiku-20241022")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
-        Index('idx_news_timestamp', 'timestamp'),
-        Index('idx_news_stance', 'stance'),
+        Index('idx_sentiment_timestamp', 'timestamp'),
+        Index('idx_sentiment_signal', 'signal'),
     )
+
+    def to_dict(self):
+        return {
+            "signal": self.signal,
+            "confidence": self.confidence,
+            "market_fear_greed": {
+                "score": self.cfgi_score,
+                "classification": self.cfgi_classification,
+                "social": self.cfgi_social,
+                "whales": self.cfgi_whales,
+                "trends": self.cfgi_trends,
+                "interpretation": self.cfgi_interpretation
+            },
+            "news_sentiment": {
+                "score": self.news_sentiment_score,
+                "label": self.news_sentiment_label,
+                "catalysts_count": self.news_catalysts_count,
+                "risks_count": self.news_risks_count
+            },
+            "key_events": self.key_events or [],
+            "risk_flags": self.risk_flags or [],
+            "summary": self.summary,
+            "what_to_watch": self.what_to_watch or [],
+            "invalidation": self.invalidation,
+            "suggested_timeframe": self.suggested_timeframe,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None
+        }
+
+
+# Keep NewsAnalyst as an alias for backward compatibility
+NewsAnalyst = SentimentAnalyst
 
 
 
