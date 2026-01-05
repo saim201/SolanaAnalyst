@@ -1,4 +1,4 @@
-
+# sentiment.py
 
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -104,13 +104,52 @@ Based on all analysis:
 - What would invalidate this analysis?
 - Document your reasoning: [Write 2-3 sentences]
 
+### CONFIDENCE GUIDELINES:
+
+<confidence_guidelines>
+## Analysis Confidence (0.70-0.95)
+How confident are you in this SENTIMENT ANALYSIS?
+
+- 0.90-0.95: Multiple reliable sources confirm, clear consensus
+- 0.80-0.89: Good source quality, minor conflicts
+- 0.70-0.79: Reasonable sources, some ambiguity
+
+NOTE: Even a NEUTRAL signal should have HIGH analysis_confidence if you're confident sentiment is neutral!
+
+## Signal Strength (0.0-1.0)
+How strong is the DIRECTIONAL SIGNAL?
+
+- 0.80-1.00: Very strong bullish/bearish signal, multiple catalysts
+- 0.60-0.79: Strong signal, good catalysts
+- 0.40-0.59: Moderate signal, mixed catalysts
+- 0.20-0.39: Weak signal, few catalysts or conflicts
+- 0.00-0.19: No clear signal, neutral
+
+CRITICAL RULES:
+- If signal is NEUTRAL → signal_strength should be ≤ 0.35
+- If major risk flags present → signal_strength should be ≤ 0.45
+- If CFGI extreme (>80 or <20) → contrarian signal should have high strength (≥0.70)
+- If news is >72h old → signal_strength penalty
+
+## Interpretation
+Combine both into a short sentence:
+- "High confidence in analysis, strong bullish signal from RWA catalysts"
+- "Very confident sentiment is neutral - mixed news with no clear direction"
+- "Clear bearish analysis from regulatory concerns"
+</confidence_guidelines>
+
 ### OUTPUT FORMAT:
 
 After your thinking, output the final JSON inside <answer> tags. The JSON must follow this EXACT structure:
 
 {{
     "signal": "BULLISH",
-    "confidence": 0.72,
+
+    "confidence": {{
+        "analysis_confidence": 0.85,
+        "signal_strength": 0.72,
+        "interpretation": "High confidence in analysis, strong bullish signal"
+    }},
 
     "market_fear_greed": {{
         "score": {cfgi_score},
@@ -159,7 +198,7 @@ IMPORTANT NOTES:
 - Write your full reasoning in <thinking> tags FIRST
 - Then output ONLY valid JSON in <answer> tags
 - All numeric values should be numbers, not strings
-- Confidence should be between 0.0 and 1.0
+- Confidence is now a nested object with analysis_confidence, signal_strength, and interpretation
 </instructions>
 
 ---
@@ -186,11 +225,10 @@ IMPORTANT NOTES:
 
 6. Valid signal values: STRONG_BULLISH, BULLISH, SLIGHTLY_BULLISH, NEUTRAL, SLIGHTLY_BEARISH, BEARISH, STRONG_BEARISH
 
-7. Confidence guidelines:
-   - >0.8: Strong alignment, no risks
-   - 0.6-0.8: Good alignment, minor concerns
-   - 0.4-0.6: Mixed signals
-   - <0.4: Conflicting signals or significant risks
+7. Confidence is a nested object:
+   - analysis_confidence: 0.70-0.95 (how sure are you in the analysis)
+   - signal_strength: 0.0-1.0 (how strong is the directional signal)
+   - interpretation: Short sentence explaining both
 </critical_rules>
 """
 
@@ -266,7 +304,6 @@ class SentimentAgent(BaseAgent):
         )
 
     def execute(self, state: AgentState) -> AgentState:
-        # Fetch news data
         dq = DataQuery()
         news_articles = dq.get_news_data(days=10)
 
@@ -299,6 +336,22 @@ class SentimentAgent(BaseAgent):
 
             sentiment_data = json.loads(answer_json)
 
+            confidence = sentiment_data.get('confidence', {})
+            if isinstance(confidence, (int, float)):
+                confidence = {
+                    'analysis_confidence': 0.75,
+                    'signal_strength': float(confidence),
+                    'interpretation': f'Legacy format: {confidence:.0%} confidence'
+                }
+            elif not isinstance(confidence, dict):
+                # Fallback for invalid format
+                confidence = {
+                    'analysis_confidence': 0.5,
+                    'signal_strength': 0.5,
+                    'interpretation': 'Default confidence'
+                }
+            sentiment_data['confidence'] = confidence
+
             if thinking:
                 sentiment_data['thinking'] = thinking
             sentiment_data['timestamp'] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -313,7 +366,11 @@ class SentimentAgent(BaseAgent):
             # Fallback to neutral sentiment
             state['sentiment'] = {
                 "signal": "NEUTRAL",
-                "confidence": 0.3,
+                "confidence": {
+                    "analysis_confidence": 0.5,
+                    "signal_strength": 0.3,
+                    "interpretation": f"Analysis error: {str(e)[:50]}"
+                },
                 "market_fear_greed": {
                     "score": formatted_data["cfgi_score"],
                     "classification": formatted_data["cfgi_classification"],
@@ -338,10 +395,6 @@ class SentimentAgent(BaseAgent):
             }
 
         return state
-
-
-# Backward compatibility alias
-NewsAgent = SentimentAgent
 
 
 if __name__ == "__main__":

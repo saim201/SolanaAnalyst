@@ -9,13 +9,11 @@ class TechnicalAnalyst(Base):
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Core fields
-    timestamp = Column(String(50))  # ISO format timestamp string
+    timestamp = Column(String(50))  # Agents timestamp
     recommendation = Column(String(10))  # BUY, SELL, HOLD, WAIT
-    confidence = Column(Float)
+    confidence = Column(JSON)  #  {analysis_confidence, setup_quality, interpretation}
     market_condition = Column(String(20))  # TRENDING, RANGING, VOLATILE, QUIET
 
-    # New structured fields (store as JSON)
     summary = Column(Text)  # 2-3 sentence actionable summary
     thinking = Column(JSON)  # Array of reasoning steps
     analysis = Column(JSON)  # {trend, momentum, volume} objects
@@ -42,21 +40,13 @@ class SentimentAnalyst(Base):
 
     # Overall signal
     signal = Column(String(30), nullable=False)  # BULLISH, BEARISH, NEUTRAL
-    confidence = Column(Float, nullable=False)
+    confidence = Column(JSON, nullable=False)  # Nested object: {analysis_confidence, signal_strength, interpretation}
 
-    # CFGI data
-    cfgi_score = Column(Float, nullable=True)
-    cfgi_classification = Column(String(20), nullable=True)
-    cfgi_social = Column(Float, nullable=True)
-    cfgi_whales = Column(Float, nullable=True)
-    cfgi_trends = Column(Float, nullable=True)
-    cfgi_interpretation = Column(Text, nullable=True)
+    # CFGI data - stored as nested JSON (single source of truth)
+    market_fear_greed = Column(JSON, nullable=True)  # {score, classification, social, whales, trends, interpretation}
 
-    # News sentiment (migrated from old NewsAnalyst)
-    news_sentiment_score = Column(Float, nullable=True)  # was overall_sentiment
-    news_sentiment_label = Column(String(30), nullable=True)  # was sentiment_label
-    news_catalysts_count = Column(Integer, nullable=True)
-    news_risks_count = Column(Integer, nullable=True)
+    # News sentiment - stored as nested JSON (single source of truth)
+    news_sentiment = Column(JSON, nullable=True)  # {score, label, catalysts_count, risks_count}
 
     # Events and analysis
     key_events = Column(JSON, nullable=True)
@@ -79,21 +69,9 @@ class SentimentAnalyst(Base):
     def to_dict(self):
         return {
             "signal": self.signal,
-            "confidence": self.confidence,
-            "market_fear_greed": {
-                "score": self.cfgi_score,
-                "classification": self.cfgi_classification,
-                "social": self.cfgi_social,
-                "whales": self.cfgi_whales,
-                "trends": self.cfgi_trends,
-                "interpretation": self.cfgi_interpretation
-            },
-            "news_sentiment": {
-                "score": self.news_sentiment_score,
-                "label": self.news_sentiment_label,
-                "catalysts_count": self.news_catalysts_count,
-                "risks_count": self.news_risks_count
-            },
+            "confidence": self.confidence,  # Nested JSON object from DB
+            "market_fear_greed": self.market_fear_greed,  # Nested JSON object from DB
+            "news_sentiment": self.news_sentiment,  # Nested JSON object from DB
             "key_events": self.key_events or [],
             "risk_flags": self.risk_flags or [],
             "summary": self.summary,
@@ -113,14 +91,13 @@ class ReflectionAnalyst(Base):
     __tablename__ = 'reflection_analyst'
 
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))  
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     recommendation = Column(String(20), nullable=False)
-    confidence = Column(Float, nullable=False)
+    confidence = Column(JSON, nullable=False)  # Nested object: {analysis_confidence, final_confidence, interpretation}
     agreement_analysis = Column(JSON, nullable=True)
     blind_spots = Column(JSON, nullable=True)
     risk_assessment = Column(JSON, nullable=True)
     monitoring = Column(JSON, nullable=True)
-    confidence_calculation = Column(JSON, nullable=True)
     reasoning = Column(Text, nullable=True)
     thinking = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

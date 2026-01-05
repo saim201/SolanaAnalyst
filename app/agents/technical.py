@@ -1,3 +1,5 @@
+# technical.py
+
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -142,6 +144,42 @@ Work through these steps IN ORDER:
 - Always provide specific price levels, not vague guidance
 - Be honest when the picture is unclear
 
+### CONFIDENCE GUIDELINES:
+
+<confidence_guidelines>
+## Analysis Confidence (0.70-0.95)
+How confident are you in this ANALYSIS (not the trade)?
+
+- 0.90-0.95: Crystal clear market state, all indicators align
+- 0.80-0.89: Clear picture, minor ambiguities
+- 0.70-0.79: Reasonable clarity, some conflicting signals
+
+NOTE: Even a WAIT recommendation should have HIGH analysis_confidence if you're sure it's time to wait!
+
+## Setup Quality (0.0-1.0)
+How good is the TRADE SETUP (if someone were to trade)?
+
+- 0.80-1.00: Excellent setup, multiple confirmations
+- 0.60-0.79: Good setup, some concerns
+- 0.40-0.59: Moderate setup, significant concerns
+- 0.20-0.39: Poor setup, major issues
+- 0.00-0.19: Invalid setup, do not trade
+
+CRITICAL RULES:
+- If recommendation is WAIT → setup_quality should be ≤ 0.35
+- If volume_ratio < 0.7 → setup_quality should be ≤ 0.25
+- If risk/reward < 1.5 → setup_quality should be ≤ 0.40
+- If recommendation is BUY/SELL → setup_quality should be ≥ 0.65
+
+## Interpretation
+Explain WHY these confidence levels with SPECIFIC data:
+- "I'm 88% confident in WAIT because volume is dead (0.56x for 43 days) and we're at resistance with 0.88:1 risk/reward"
+- "High confidence BUY (85%) - volume spike 2.1x with breakout above $140, RSI 58 (healthy), strong 1.8:1 R/R"
+- "Moderate confidence (72%) - trend is bullish but BTC correlation (0.91) with bearish BTC creates uncertainty"
+
+Include: volume ratio, key price levels, risk/reward, or BTC context. Be specific, not generic.
+</confidence_guidelines>
+
 ### OUTPUT FORMAT:
 
 After your thinking, output the final JSON inside <answer> tags. The JSON must follow this EXACT structure:
@@ -149,35 +187,52 @@ After your thinking, output the final JSON inside <answer> tags. The JSON must f
 ```json
 {{
   "recommendation": "BUY|SELL|HOLD|WAIT",
-  "confidence": 0.72,
+
+  "confidence": {{
+    "analysis_confidence": 0.85,
+    "setup_quality": 0.72,
+    "interpretation": "High confidence in analysis, good trade setup"
+  }},
+
   "market_condition": "TRENDING|RANGING|VOLATILE|QUIET",
 
   "summary": "2-3 sentences: What's happening and what to do. Be specific and actionable.",
 
-  "thinking": [
-    "Market story: [your observation]",
-    "Volume assessment: [your observation]",
-    "Momentum read: [your observation]",
-    "BTC context: [your observation]",
-    "Setup evaluation: [your observation]",
-    "Key conclusion: [your conclusion]"
-  ],
+  "thinking": "MARKET STORY
+    [Write 2-4 sentences explaining price action, trend direction, where we are in the cycle. Include specific values like EMA levels, price ranges, key resistance/support.]
+
+    VOLUME ASSESSMENT
+    [Write 2-4 sentences analysing volume quality. State the ratio, days since spike, how volume behaves during moves. This is CRITICAL - be detailed if volume is weak.]
+
+    MOMENTUM CHECK
+    [Write 2-4 sentences on RSI, MACD, momentum direction. Reference actual values like 'RSI 66.9 approaching overbought' not just 'RSI high'.]
+
+    BTC CONTEXT
+    [Write 2-3 sentences on correlation strength, BTC trend, how this impacts SOL. Only include if correlation >0.75 or BTC trend is significant.]
+
+    SETUP EVALUATION
+    [Write 2-4 sentences on risk/reward, entry/exit levels, viability. Be specific: '0.88:1 R/R is below 1.5:1 minimum' not 'poor R/R'.]
+
+    FINAL CALL
+    [Write 2-3 sentences synthesising everything into your recommendation. Be decisive and clear.]",
+
+
 
   "analysis": {{
     "trend": {{
       "direction": "BULLISH|BEARISH|NEUTRAL",
       "strength": "STRONG|MODERATE|WEAK",
-      "detail": "1-2 sentences max"
+      "detail": "2-3 sentences explaining WHY this direction/strength, referencing SPECIFIC indicator values (EMAs, price levels, volume ratio, RSI). Example: 'Uptrend confirmed by price above EMA20 ($133), rallied 9% from $123 to $134. However, testing EMA50 resistance with weak volume (0.56x) suggests fragility.'"
     }},
     "momentum": {{
       "direction": "BULLISH|BEARISH|NEUTRAL",
       "strength": "STRONG|MODERATE|WEAK",
-      "detail": "1-2 sentences max"
+      "detail": "2-3 sentences explaining WHY this direction/strength, referencing SPECIFIC indicator values (EMAs, price levels, volume ratio, RSI). Example: 'Uptrend confirmed by price above EMA20 ($133), rallied 9% from $123 to $134. However, testing EMA50 resistance with weak volume (0.56x) suggests fragility.'"
     }},
     "volume": {{
       "quality": "STRONG|ACCEPTABLE|WEAK|DEAD",
       "ratio": 0.82,
-      "detail": "1-2 sentences max"
+      "detail": "2-3 sentences explaining WHY this direction/strength, referencing SPECIFIC indicator values (EMAs, price levels, volume ratio, RSI). Example: 'Uptrend confirmed by price above EMA20 ($133), rallied 9% from $123 to $134. However, testing EMA50 resistance with weak volume (0.56x) suggests fragility.'"
     }}
   }},
 
@@ -194,15 +249,21 @@ After your thinking, output the final JSON inside <answer> tags. The JSON must f
   }},
 
   "action_plan": {{
-    "primary": "Main action to take",
-    "alternative": "Alternative if primary doesn't trigger",
-    "if_in_position": "Guidance for existing holders",
-    "avoid": "What NOT to do"
+    "for_buyers": "Specific guidance for someone wanting to BUY (entry conditions, what to wait for)",
+    "for_sellers": "Specific guidance for someone wanting to SELL/SHORT (exit conditions, when to act)",
+    "if_holding": "Guidance for existing holders (take profit levels, stop placement)",
+    "avoid": "What NOT to do (minimum 2-3 specific things to avoid)"
   }},
 
   "watch_list": {{
-    "next_24h": ["Item 1", "Item 2", "Item 3"],
-    "next_48h": ["Item 1", "Item 2", "Item 3"]
+    "bullish_signals": [
+    "Specific condition that would make setup bullish (e.g., 'Volume spike >1.5x + break above $135')",
+    "Another bullish trigger"
+    ],
+    "bearish_signals": [
+    "Specific condition that would invalidate setup (e.g., 'Break below $127 support')",
+    "Another bearish trigger"
+    ]
   }},
 
   "invalidation": [
@@ -211,9 +272,8 @@ After your thinking, output the final JSON inside <answer> tags. The JSON must f
   ],
 
   "confidence_reasoning": {{
-    "supporting": ["Factor 1", "Factor 2", "Factor 3"],
-    "concerns": ["Concern 1", "Concern 2", "Concern 3"],
-    "assessment": "One sentence explaining final confidence score"
+    "supporting": "Write 2-5 sentences explaining what SUPPORTS your recommendation. Be specific with numbers and logic. Example: 'The WAIT call is backed by clear dead volume (0.56x, no spike in 43 days), poor risk/reward at resistance (0.88:1 vs 1.5:1 minimum), and bearish BTC correlation (0.92 with BTC down 4.3%).'",
+    "concerns": "Write 2-5 sentences on what COULD GO WRONG or arguments against your call. Be honest. Example: 'The bull case exists: short-term trend still up, MACD histogram positive, sudden volume could change everything. But current data says wait.'"
   }}
 }}
 ```
@@ -222,8 +282,8 @@ IMPORTANT NOTES:
 - Write your full reasoning in <thinking> tags FIRST
 - Then output ONLY valid JSON in <answer> tags
 - All price values should be numbers, not strings
-- Confidence should be between 0.0 and 1.0
-- If recommending HOLD/WAIT, set entry/stop_loss/take_profit to null but still provide support/resistance/current_price
+- Confidence is now a nested object with analysis_confidence, setup_quality, and interpretation
+- If recommending HOLD/WAIT, set entry/stop_loss/take_profit to null but still provide support/resistance/current_price. timeframe should NEVER be null. For WAIT: use "Wait 1-3 days for volume confirmation". For HOLD: use "Monitor next 2-4 days". For BUY/SELL: use any specific timeframe.
 </instructions>
 """
 
@@ -381,7 +441,6 @@ class TechnicalAgent(BaseAgent):
         high_24h = float(ticker.get('highPrice', 0))
         low_24h = float(ticker.get('lowPrice', 0))
 
-        # Range position in 24h
         range_24h = high_24h - low_24h
         range_position_24h = (current_price - low_24h) / range_24h if range_24h > 0 else 0.5
 
@@ -526,10 +585,26 @@ class TechnicalAgent(BaseAgent):
 
             timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
+            confidence = analysis.get('confidence', {})
+            if isinstance(confidence, (int, float)):
+                # Backward compatibility: convert old single float to nested object
+                confidence = {
+                    'analysis_confidence': 0.75,
+                    'setup_quality': float(confidence),
+                    'interpretation': f'Legacy format: {confidence:.0%} confidence'
+                }
+            elif not isinstance(confidence, dict):
+                # Fallback for invalid format
+                confidence = {
+                    'analysis_confidence': 0.5,
+                    'setup_quality': 0.5,
+                    'interpretation': 'Default confidence'
+                }
+
             state['technical'] = {
-                'timestamp': timestamp,
+                'timestamp': analysis.get('timestamp', timestamp),
                 'recommendation': analysis.get('recommendation', 'HOLD'),
-                'confidence': float(analysis.get('confidence', 0.5)),
+                'confidence': confidence,
                 'market_condition': analysis.get('market_condition', 'QUIET'),
                 'summary': analysis.get('summary', ''),
                 'thinking': analysis.get('thinking', []),
@@ -544,8 +619,6 @@ class TechnicalAgent(BaseAgent):
             with DataManager() as dm:
                 dm.save_technical_analysis(data=state['technical'])
 
-            if raw_thinking:
-                print(f"🧠 LLM Thinking Process:\n{raw_thinking[:500]}...")
 
         except (json.JSONDecodeError, ValueError) as e:
             print(f"  Technical agent parsing error: {e}")
@@ -556,7 +629,11 @@ class TechnicalAgent(BaseAgent):
             state['technical'] = {
                 'timestamp': timestamp,
                 'recommendation': 'HOLD',
-                'confidence': 0.0,
+                'confidence': {
+                    'analysis_confidence': 0.5,
+                    'setup_quality': 0.0,
+                    'interpretation': f'Analysis error: {str(e)[:50]}'
+                },
                 'market_condition': 'QUIET',
                 'summary': f'Analysis error: {str(e)[:100]}',
                 'thinking': [],

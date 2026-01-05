@@ -16,7 +16,7 @@ class TradingGraph:
 
         self.progress_tracker = progress_tracker
         self.technical_agent = TechnicalAgent()
-        self.sentiment_agent = SentimentAgent()  # Renamed from news_agent
+        self.sentiment_agent = SentimentAgent() 
         self.reflection_agent = ReflectionAgent()
         self.trader_agent = TraderAgent()
         self.graph = self._build_graph()

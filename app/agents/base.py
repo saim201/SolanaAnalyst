@@ -2,33 +2,78 @@ from abc import ABC, abstractmethod
 from typing import TypedDict, Literal, Dict, List, Optional
 
 
+class TrendAnalysis(TypedDict):
+    direction: Literal['BULLISH', 'BEARISH', 'NEUTRAL']
+    strength: Literal['STRONG', 'MODERATE', 'WEAK']
+    detail: str
 
-class ConfidenceBreakdown(TypedDict):
-    trend_strength: float
-    momentum_confirmation: float
-    volume_quality: float
-    risk_reward: float
-    final_adjusted: float
+
+class MomentumAnalysis(TypedDict):
+    direction: Literal['BULLISH', 'BEARISH', 'NEUTRAL']
+    strength: Literal['STRONG', 'MODERATE', 'WEAK']
+    detail: str
+
+
+class VolumeAnalysis(TypedDict):
+    quality: Literal['STRONG', 'ACCEPTABLE', 'WEAK', 'DEAD']
+    ratio: float
+    detail: str
+
+
+class Analysis(TypedDict):
+    trend: TrendAnalysis
+    momentum: MomentumAnalysis
+    volume: VolumeAnalysis
+
+
+class TradeSetup(TypedDict):
+    viability: Literal['VALID', 'WAIT', 'INVALID']
+    entry: Optional[float]
+    stop_loss: Optional[float]
+    take_profit: Optional[float]
+    risk_reward: Optional[float]
+    support: float
+    resistance: float
+    current_price: float
+    timeframe: str
+
+
+class ActionPlan(TypedDict):
+    for_buyers: str
+    for_sellers: str
+    if_holding: str
+    avoid: str
+
 
 class WatchList(TypedDict):
-    confirmation_signals: List[str]
-    invalidation_signals: List[str]
-    key_levels_24_48h: List[str]
-    time_based_triggers: List[str]
+    bullish_signals: List[str]
+    bearish_signals: List[str]
+
+
+class ConfidenceReasoning(TypedDict):
+    supporting: List[str]
+    concerns: List[str]
+
+
+class TechnicalConfidence(TypedDict):
+    analysis_confidence: float
+    setup_quality: float
+    interpretation: str
+
 
 class technicalOutput(TypedDict):
-    recommendation: Literal['BUY', 'SELL', 'HOLD']
-    confidence: float
-    timeframe: str
-    key_signals: List[str]
-    entry_level: float
-    stop_loss: float
-    take_profit: float
-    reasoning: str
-    confidence_breakdown: ConfidenceBreakdown
-    recommendation_summary: str
+    timestamp: str
+    recommendation: Literal['BUY', 'SELL', 'HOLD', 'WAIT']
+    confidence: TechnicalConfidence
+    market_condition: Literal['TRENDING', 'RANGING', 'VOLATILE', 'QUIET']
+    summary: str
+    thinking: List[str]
+    analysis: Analysis
+    trade_setup: TradeSetup
+    action_plan: ActionPlan
     watch_list: WatchList
-    thinking: str
+    invalidation: List[str]
+    confidence_reasoning: ConfidenceReasoning
 
 
 class MarketFearGreed(TypedDict):
@@ -39,11 +84,13 @@ class MarketFearGreed(TypedDict):
     trends: Optional[float]
     interpretation: str
 
+
 class NewsSentiment(TypedDict):
     score: float
     label: str
     catalysts_count: int
     risks_count: int
+
 
 class KeyEvent(TypedDict):
     title: str
@@ -53,13 +100,16 @@ class KeyEvent(TypedDict):
     impact: str
     source: str
 
+
+class SentimentConfidence(TypedDict):
+    analysis_confidence: float
+    signal_strength: float
+    interpretation: str
+
+
 class SentimentOutput(TypedDict):
-    """
-    Combined CFGI Fear & Greed + News sentiment analysis.
-    Replaces the old NewsOutput schema.
-    """
-    signal: str  # BULLISH, BEARISH, NEUTRAL, etc.
-    confidence: float
+    signal: str
+    confidence: SentimentConfidence
     market_fear_greed: MarketFearGreed
     news_sentiment: NewsSentiment
     key_events: List[KeyEvent]
@@ -70,50 +120,56 @@ class SentimentOutput(TypedDict):
     suggested_timeframe: str
     thinking: str
 
-# Backward compatibility alias
-NewsOutput = SentimentOutput
-
-
-
 
 class AgreementAnalysis(TypedDict):
-    alignment_status: str
+    alignment_status: Literal['ALIGNED', 'PARTIAL', 'CONFLICTED']
     alignment_score: float
-    explanation: str
+    technical_view: str
+    sentiment_view: str
+    synthesis: str
+
 
 class BlindSpots(TypedDict):
     technical_missed: List[str]
-    news_missed: List[str]
+    sentiment_missed: List[str]
+    critical_insight: str
+
 
 class RiskAssessment(TypedDict):
     primary_risk: str
-    risk_level: str
-    risk_score: float
+    risk_level: Literal['LOW', 'MEDIUM', 'HIGH']
+    secondary_risks: List[str]
+
 
 class Monitoring(TypedDict):
     watch_next_24h: List[str]
-    invalidation_trigger: str
+    invalidation_triggers: List[str]
 
-class ConfidenceCalculation(TypedDict):
-    starting_confidence: float
-    alignment_bonus: float
-    risk_penalty: float
-    confidence: float
+
+class ReflectionConfidence(TypedDict):
+    analysis_confidence: float
+    final_confidence: float
+    interpretation: str
+
+
+class TimeframeReconciliation(TypedDict):
+    technical_timeframe: str
+    sentiment_timeframe: str
+    reconciled_timeframe: str
     reasoning: str
 
+
 class ReflectionOutput(TypedDict):
-    recommendation: str
-    confidence: float
+    recommendation: Literal['BUY', 'SELL', 'HOLD', 'WAIT']
+    confidence: ReflectionConfidence
+    timestamp: str
     agreement_analysis: AgreementAnalysis
     blind_spots: BlindSpots
     risk_assessment: RiskAssessment
     monitoring: Monitoring
-    confidence_calculation: ConfidenceCalculation
+    timeframe_reconciliation: TimeframeReconciliation
     reasoning: str
     thinking: str
-
-
-
 
 
 class AgentSynthesis(TypedDict):
@@ -126,6 +182,7 @@ class AgentSynthesis(TypedDict):
     news_contribution: str
     reflection_contribution: str
 
+
 class ExecutionPlan(TypedDict):
     entry_timing: str
     position_size: str
@@ -135,12 +192,14 @@ class ExecutionPlan(TypedDict):
     timeframe: str
     risk_reward_ratio: str
 
+
 class RiskManagement(TypedDict):
     max_loss_per_trade: str
     primary_risk: str
     secondary_risks: List[str]
     exit_conditions: List[str]
     monitoring_checklist: List[str]
+
 
 class TraderOutput(TypedDict):
     decision: Literal['BUY', 'SELL', 'HOLD']
@@ -157,9 +216,6 @@ class AgentState(TypedDict, total=False):
     sentiment: Optional[SentimentOutput]
     reflection: Optional[ReflectionOutput]
     trader: Optional[TraderOutput]
-    # Backward compatibility alias
-    news: Optional[SentimentOutput]
-
 
 
 class BaseAgent(ABC):

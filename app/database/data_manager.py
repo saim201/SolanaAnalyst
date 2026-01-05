@@ -366,7 +366,6 @@ class DataManager:
 
 
     def save_technical_analysis(self, data: Dict) -> int:
-        """Save technical analysis with v2 schema."""
         from app.database.models.analysis import TechnicalAnalyst
 
         record = TechnicalAnalyst(
@@ -386,7 +385,7 @@ class DataManager:
 
         self.db.add(record)
         self.db.commit()
-        print(f"💾 Saved technical analysis: {data.get('recommendation')} @ {data.get('confidence'):.0%} confidence")
+
         return 1
 
 
@@ -398,26 +397,18 @@ class DataManager:
 
         # Extract nested data
         market_fear_greed = data.get('market_fear_greed', {})
-        news_sentiment = data.get('news_sentiment', {})
+        news_sentiment_data = data.get('news_sentiment', {})
 
         record = {
             # Overall signal
             'signal': data.get('signal'),
-            'confidence': data.get('confidence'),
+            'confidence': data.get('confidence'),  # Nested JSON object: {analysis_confidence, signal_strength, interpretation}
 
-            # CFGI data
-            'cfgi_score': market_fear_greed.get('score'),
-            'cfgi_classification': market_fear_greed.get('classification'),
-            'cfgi_social': market_fear_greed.get('social'),
-            'cfgi_whales': market_fear_greed.get('whales'),
-            'cfgi_trends': market_fear_greed.get('trends'),
-            'cfgi_interpretation': market_fear_greed.get('interpretation'),
+            # CFGI data - stored as nested JSON
+            'market_fear_greed': market_fear_greed,  # {score, classification, social, whales, trends, interpretation}
 
-            # News sentiment
-            'news_sentiment_score': news_sentiment.get('score'),
-            'news_sentiment_label': news_sentiment.get('label'),
-            'news_catalysts_count': news_sentiment.get('catalysts_count'),
-            'news_risks_count': news_sentiment.get('risks_count'),
+            # News sentiment - stored as nested JSON
+            'news_sentiment': news_sentiment_data,  # {score, label, catalysts_count, risks_count}
 
             # Events and analysis
             'key_events': data.get('key_events'),
@@ -449,12 +440,11 @@ class DataManager:
 
         record = {
             'recommendation': data.get('recommendation'),
-            'confidence': data.get('confidence'),
+            'confidence': data.get('confidence'),  # Now a nested JSON object
             'agreement_analysis': data.get('agreement_analysis'),
             'blind_spots': data.get('blind_spots'),
             'risk_assessment': data.get('risk_assessment'),
             'monitoring': data.get('monitoring'),
-            'confidence_calculation': data.get('confidence_calculation'),
             'reasoning': data.get('reasoning'),
             'thinking': data.get('thinking')
         }
