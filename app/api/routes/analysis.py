@@ -49,7 +49,7 @@ def get_latest_analysis():
 
         technical_data = {
             "timestamp": technical.timestamp if technical.timestamp else technical.created_at.isoformat(),
-            "recommendation": technical.recommendation,
+            "recommendation_signal": technical.recommendation_signal,
             "confidence": technical.confidence,
             "market_condition": technical.market_condition,
             "summary": technical.summary,
@@ -62,10 +62,10 @@ def get_latest_analysis():
             "confidence_reasoning": technical.confidence_reasoning,
         }
 
-        # Use new SentimentAnalyst schema (CFGI + News combined as nested JSON)
         sentiment_data = {
             "timestamp": sentiment.timestamp.isoformat() if sentiment.timestamp else sentiment.created_at.isoformat(),
             "signal": sentiment.signal,
+            "recommendation_signal": sentiment.recommendation_signal,
             "confidence": sentiment.confidence,
             "market_fear_greed": sentiment.market_fear_greed,
             "news_sentiment": sentiment.news_sentiment,
@@ -80,7 +80,7 @@ def get_latest_analysis():
 
         reflection_data = {
             "timestamp": reflection.timestamp.isoformat() if reflection.timestamp else reflection.created_at.isoformat(),
-            "recommendation": reflection.recommendation,
+            "recommendation_signal": reflection.recommendation_signal,
             "confidence": reflection.confidence,
             "agreement_analysis": reflection.agreement_analysis,
             "blind_spots": reflection.blind_spots,
@@ -106,7 +106,7 @@ def get_latest_analysis():
 
         return TradeAnalysisResponse(
             technical_analysis=technical_data,
-            news_analysis=sentiment_data,
+            sentiment_analysis=sentiment_data,
             reflection_analysis=reflection_data,
             trader_analysis=trader_data,
             timestamp=latest_timestamp.isoformat()
@@ -161,7 +161,7 @@ def analyse_trade(job_id: Optional[str] = Query(None)):
 
         return TradeAnalysisResponse(
             technical_analysis = sanitized_result.get('technical', {}),
-            news_analysis = sanitized_result.get('sentiment', {}),  # 'sentiment' but keep API field name for backward compatibility
+            sentiment_analysis = sanitized_result.get('sentiment', {}),
             reflection_analysis = sanitized_result.get('reflection', {}),
             trader_analysis = sanitized_result.get('trader', {}),
             timestamp = timestamp.isoformat()

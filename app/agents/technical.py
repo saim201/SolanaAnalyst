@@ -154,7 +154,7 @@ How confident are you in this ANALYSIS (not the trade)?
 - 0.80-0.89: Clear picture, minor ambiguities
 - 0.70-0.79: Reasonable clarity, some conflicting signals
 
-NOTE: Even a WAIT recommendation should have HIGH analysis_confidence if you're sure it's time to wait!
+NOTE: Even a WAIT recommendation_signal should have HIGH analysis_confidence if you're sure it's time to wait!
 
 ## Setup Quality (0.0-1.0)
 How good is the TRADE SETUP (if someone were to trade)?
@@ -166,10 +166,10 @@ How good is the TRADE SETUP (if someone were to trade)?
 - 0.00-0.19: Invalid setup, do not trade
 
 CRITICAL RULES:
-- If recommendation is WAIT → setup_quality should be ≤ 0.35
+- If recommendation_signal is WAIT → setup_quality should be ≤ 0.35
 - If volume_ratio < 0.7 → setup_quality should be ≤ 0.25
 - If risk/reward < 1.5 → setup_quality should be ≤ 0.40
-- If recommendation is BUY/SELL → setup_quality should be ≥ 0.65
+- If recommendation_signal is BUY/SELL → setup_quality should be ≥ 0.65
 
 ## Interpretation
 Explain WHY these confidence levels with SPECIFIC data:
@@ -186,7 +186,7 @@ After your thinking, output the final JSON inside <answer> tags. The JSON must f
 
 ```json
 {{
-  "recommendation": "BUY|SELL|HOLD|WAIT",
+  "recommendation_signal": "BUY|SELL|HOLD|WAIT",
 
   "confidence": {{
     "analysis_confidence": 0.85,
@@ -214,7 +214,7 @@ After your thinking, output the final JSON inside <answer> tags. The JSON must f
     [Write 2-4 sentences on risk/reward, entry/exit levels, viability. Be specific: '0.88:1 R/R is below 1.5:1 minimum' not 'poor R/R'.]
 
     FINAL CALL
-    [Write 2-3 sentences synthesising everything into your recommendation. Be decisive and clear.]",
+    [Write 2-3 sentences synthesising everything into your recommendation_signal. Be decisive and clear.]",
 
 
 
@@ -272,7 +272,7 @@ After your thinking, output the final JSON inside <answer> tags. The JSON must f
   ],
 
   "confidence_reasoning": {{
-    "supporting": "Write 2-5 sentences explaining what SUPPORTS your recommendation. Be specific with numbers and logic. Example: 'The WAIT call is backed by clear dead volume (0.56x, no spike in 43 days), poor risk/reward at resistance (0.88:1 vs 1.5:1 minimum), and bearish BTC correlation (0.92 with BTC down 4.3%).'",
+    "supporting": "Write 2-5 sentences explaining what SUPPORTS your recommendation_signal. Be specific with numbers and logic. Example: 'The WAIT call is backed by clear dead volume (0.56x, no spike in 43 days), poor risk/reward at resistance (0.88:1 vs 1.5:1 minimum), and bearish BTC correlation (0.92 with BTC down 4.3%).'",
     "concerns": "Write 2-5 sentences on what COULD GO WRONG or arguments against your call. Be honest. Example: 'The bull case exists: short-term trend still up, MACD histogram positive, sudden volume could change everything. But current data says wait.'"
   }}
 }}
@@ -603,7 +603,7 @@ class TechnicalAgent(BaseAgent):
 
             state['technical'] = {
                 'timestamp': analysis.get('timestamp', timestamp),
-                'recommendation': analysis.get('recommendation', 'HOLD'),
+                'recommendation_signal': analysis.get('recommendation_signal', 'HOLD'),
                 'confidence': confidence,
                 'market_condition': analysis.get('market_condition', 'QUIET'),
                 'summary': analysis.get('summary', ''),
@@ -628,7 +628,7 @@ class TechnicalAgent(BaseAgent):
 
             state['technical'] = {
                 'timestamp': timestamp,
-                'recommendation': 'HOLD',
+                'recommendation_signal': 'HOLD',
                 'confidence': {
                     'analysis_confidence': 0.5,
                     'setup_quality': 0.0,

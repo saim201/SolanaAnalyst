@@ -5,7 +5,7 @@ from app.database.models.candlestick import CandlestickModel, CandlestickIntrada
 from app.database.models.indicators import IndicatorsModel
 from app.database.models.news import NewsModel
 from app.database.models.cfgi import CFGIData
-from app.database.models.analysis import TechnicalAnalyst, SentimentAnalyst, NewsAnalyst, ReflectionAnalyst, TraderAnalyst
+from app.database.models.analysis import TechnicalAnalyst, SentimentAnalyst, ReflectionAnalyst, TraderAnalyst
 from app.database.models.progress import AnalysisProgress
 
 __all__ = [
@@ -17,7 +17,6 @@ __all__ = [
     "CFGIData",
     "TechnicalAnalyst",
     "SentimentAnalyst",
-    "NewsAnalyst",  # Alias for backward compatibility
     "ReflectionAnalyst",
     "TraderAnalyst",
     "AnalysisProgress"

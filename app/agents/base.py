@@ -63,7 +63,7 @@ class TechnicalConfidence(TypedDict):
 
 class technicalOutput(TypedDict):
     timestamp: str
-    recommendation: Literal['BUY', 'SELL', 'HOLD', 'WAIT']
+    recommendation_signal: Literal['BUY', 'SELL', 'HOLD', 'WAIT']
     confidence: TechnicalConfidence
     market_condition: Literal['TRENDING', 'RANGING', 'VOLATILE', 'QUIET']
     summary: str
@@ -160,7 +160,7 @@ class TimeframeReconciliation(TypedDict):
 
 
 class ReflectionOutput(TypedDict):
-    recommendation: Literal['BUY', 'SELL', 'HOLD', 'WAIT']
+    recommendation_signal: Literal['BUY', 'SELL', 'HOLD', 'WAIT']
     confidence: ReflectionConfidence
     timestamp: str
     agreement_analysis: AgreementAnalysis

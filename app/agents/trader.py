@@ -52,7 +52,7 @@ Watch List:
 {tech_watchlist}
 </technical_analysis>
 
-<news_analysis>
+<sentiment_analysis>
 Sentiment: {sentiment_score:.2%} ({sentiment_label})
 News Confidence: {sentiment_confidence:.2%}
 
@@ -69,7 +69,7 @@ News Summary: {sentiment_summary}
 What to Watch: {sentiment_watch}
 
 Invalidation: {sentiment_invalidation}
-</news_analysis>
+</sentiment_analysis>
 
 <reflection_analysis>
 Reflection Recommendation: {reflection_recommendation}
@@ -269,23 +269,20 @@ class TraderAgent(BaseAgent):
 
     def execute(self, state: AgentState) -> AgentState:
         technical = state.get('technical', {})
-        tech_recommendation = technical.get('recommendation', 'HOLD')
+        tech_recommendation = technical.get('recommendation_signal', 'HOLD')
 
-        # Handle nested confidence object from Technical agent
         tech_confidence_obj = technical.get('confidence', {})
         if isinstance(tech_confidence_obj, dict):
             tech_confidence = tech_confidence_obj.get('setup_quality', 0.5)
         else:
             tech_confidence = float(tech_confidence_obj) if tech_confidence_obj else 0.5
 
-        # Access nested trade_setup fields
         trade_setup = technical.get('trade_setup', {})
         tech_timeframe = trade_setup.get('timeframe', 'N/A')
         tech_entry = trade_setup.get('entry')
         tech_stop = trade_setup.get('stop_loss')
         tech_target = trade_setup.get('take_profit')
 
-        # Access new nested fields
         tech_summary = technical.get('summary', 'No summary provided')
         tech_watchlist = technical.get('watch_list', {})
         tech_analysis = technical.get('analysis', {})
@@ -328,7 +325,7 @@ class TraderAgent(BaseAgent):
         sentiment_watch_formatted = '\n'.join([f"  - {item}" for item in sentiment_watch]) if sentiment_watch else "Nothing specified"
 
         reflection = state.get('reflection', {})
-        reflection_recommendation = reflection.get('recommendation', 'HOLD')
+        reflection_recommendation = reflection.get('recommendation_signal', 'HOLD')
 
         # Handle nested confidence object from Reflection agent
         reflection_confidence_obj = reflection.get('confidence', {})
@@ -408,7 +405,6 @@ class TraderAgent(BaseAgent):
             if first_brace != -1 and last_brace != -1:
                 answer_json = answer_json[first_brace:last_brace+1]
 
-            # Remove control characters that break JSON parsing
             answer_json = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', answer_json)
 
             trader_data = json.loads(answer_json)
@@ -432,13 +428,11 @@ class TraderAgent(BaseAgent):
                     data=trader_data
                 )
 
-            print(f" Trader agent completed: {decision} (confidence: {confidence:.0%})")
 
         except (json.JSONDecodeError, ValueError) as e:
             print(f"  Trader agent parsing error: {e}")
             print(f"Response preview: {response[:500]}")
 
-            # === FALLBACK DECISION ===
             fallback_decision = reflection_recommendation if reflection_recommendation in ['BUY', 'SELL', 'HOLD'] else 'HOLD'
             fallback_confidence = reflection_confidence * 0.8  # Reduce confidence due to error
 
@@ -488,7 +482,7 @@ if __name__ == "__main__":
 
     test_state['technical'] = {
         'timestamp': '2025-01-02T15:30:00Z',
-        'recommendation': 'BUY',
+        'recommendation_signal': 'BUY',
         'confidence': {
             'analysis_confidence': 0.85,
             'setup_quality': 0.65,
@@ -554,6 +548,7 @@ if __name__ == "__main__":
 
     test_state['sentiment'] = {
         'signal': 'SLIGHTLY_BULLISH',
+        'recommendation_signal': 'HOLD',
         'confidence': {
             'analysis_confidence': 0.80,
             'signal_strength': 0.62,
@@ -592,7 +587,7 @@ if __name__ == "__main__":
     }
 
     test_state['reflection'] = {
-        'recommendation': 'HOLD',
+        'recommendation_signal': 'HOLD',
         'confidence': {
             'analysis_confidence': 0.80,
             'final_confidence': 0.57,

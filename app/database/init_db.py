@@ -20,7 +20,7 @@ def test_connection():
 
 def init_db():
     from .models import (
-        TechnicalAnalyst, SentimentAnalyst, NewsAnalyst, ReflectionAnalyst, TraderAnalyst,
+        TechnicalAnalyst, SentimentAnalyst, ReflectionAnalyst, TraderAnalyst,
         CandlestickModel, CandlestickIntradayModel, TickerModel, IndicatorsModel, CFGIData
 )
 

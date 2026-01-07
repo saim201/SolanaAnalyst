@@ -10,7 +10,7 @@ from app.database.models.indicators import IndicatorsModel
 from app.database.models.candlestick import CandlestickModel, CandlestickIntradayModel, TickerModel, BTCTickerModel, BTCCandlestickModel
 from app.database.config import get_db_session
 
-# CFGI cache duration
+
 CFGI_CACHE_HOURS = 4
 
 
@@ -43,15 +43,7 @@ class DataManager:
         stmt = insert(TickerModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['timestamp'],
-            set_={
-                'lastPrice': stmt.excluded.lastPrice,
-                'priceChangePercent': stmt.excluded.priceChangePercent,
-                'openPrice': stmt.excluded.openPrice,
-                'highPrice': stmt.excluded.highPrice,
-                'lowPrice': stmt.excluded.lowPrice,
-                'volume': stmt.excluded.volume,
-                'quoteVolume': stmt.excluded.quoteVolume
-            }
+            set_=records
         )
 
         self.db.execute(stmt)
@@ -82,18 +74,7 @@ class DataManager:
         stmt = insert(CandlestickModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['open_time'],
-            set_={
-                'open': stmt.excluded.open,
-                'high': stmt.excluded.high,
-                'low': stmt.excluded.low,
-                'close': stmt.excluded.close,
-                'volume': stmt.excluded.volume,
-                'quote_volume': stmt.excluded.quote_volume,
-                'num_trades': stmt.excluded.num_trades,
-                'taker_buy_base': stmt.excluded.taker_buy_base,
-                'taker_buy_quote': stmt.excluded.taker_buy_quote,
-                'close_time': stmt.excluded.close_time,
-            }
+            set_=records
         )
 
         self.db.execute(stmt)
@@ -124,18 +105,7 @@ class DataManager:
         stmt = insert(CandlestickIntradayModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['open_time'],
-            set_={
-                'open': stmt.excluded.open,
-                'high': stmt.excluded.high,
-                'low': stmt.excluded.low,
-                'close': stmt.excluded.close,
-                'volume': stmt.excluded.volume,
-                'quote_volume': stmt.excluded.quote_volume,
-                'num_trades': stmt.excluded.num_trades,
-                'taker_buy_base': stmt.excluded.taker_buy_base,
-                'taker_buy_quote': stmt.excluded.taker_buy_quote,
-                'close_time': stmt.excluded.close_time,
-            }
+            set_=records
         )
 
         self.db.execute(stmt)
@@ -163,15 +133,7 @@ class DataManager:
         stmt = insert(BTCTickerModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['timestamp'],
-            set_={
-                'lastPrice': stmt.excluded.lastPrice,
-                'priceChangePercent': stmt.excluded.priceChangePercent,
-                'openPrice': stmt.excluded.openPrice,
-                'highPrice': stmt.excluded.highPrice,
-                'lowPrice': stmt.excluded.lowPrice,
-                'volume': stmt.excluded.volume,
-                'quoteVolume': stmt.excluded.quoteVolume
-            }
+            set_=records
         )
 
         self.db.execute(stmt)
@@ -202,18 +164,7 @@ class DataManager:
         stmt = insert(BTCCandlestickModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['open_time'],
-            set_={
-                'open': stmt.excluded.open,
-                'high': stmt.excluded.high,
-                'low': stmt.excluded.low,
-                'close': stmt.excluded.close,
-                'volume': stmt.excluded.volume,
-                'quote_volume': stmt.excluded.quote_volume,
-                'num_trades': stmt.excluded.num_trades,
-                'taker_buy_base': stmt.excluded.taker_buy_base,
-                'taker_buy_quote': stmt.excluded.taker_buy_quote,
-                'close_time': stmt.excluded.close_time,
-            }
+            set_=records
         )
 
         self.db.execute(stmt)
@@ -249,14 +200,7 @@ class DataManager:
         stmt = insert(NewsModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['url'],
-            set_={
-                'title': stmt.excluded.title,
-                'source': stmt.excluded.source,
-                'published_at': stmt.excluded.published_at,
-                'content': stmt.excluded.content,
-                'sentiment': stmt.excluded.sentiment,
-                'priority': stmt.excluded.priority,
-            }
+            set_=records
         )
 
         self.db.execute(stmt)
@@ -267,7 +211,6 @@ class DataManager:
 
 
     def save_indicators(self, timestamp: datetime, indicators: Dict) -> int:
-        print(f"Saving indicators for {timestamp}...")
 
         record = {
             'timestamp': timestamp,
@@ -315,53 +258,13 @@ class DataManager:
         stmt = insert(IndicatorsModel).values(record)
         stmt = stmt.on_conflict_do_update(
             index_elements=['timestamp'],
-            set_={
-                # Trend
-                'ema20': stmt.excluded.ema20,
-                'ema50': stmt.excluded.ema50,
-                'high_14d': stmt.excluded.high_14d,
-                'low_14d': stmt.excluded.low_14d,
-                # Momentum
-                'macd_line': stmt.excluded.macd_line,
-                'macd_signal': stmt.excluded.macd_signal,
-                'macd_histogram': stmt.excluded.macd_histogram,
-                'rsi14': stmt.excluded.rsi14,
-                'rsi_divergence_type': stmt.excluded.rsi_divergence_type,
-                'rsi_divergence_strength': stmt.excluded.rsi_divergence_strength,
-                # Volatility
-                'bb_upper': stmt.excluded.bb_upper,
-                'bb_lower': stmt.excluded.bb_lower,
-                'bb_squeeze_ratio': stmt.excluded.bb_squeeze_ratio,
-                'bb_squeeze_active': stmt.excluded.bb_squeeze_active,
-                'atr': stmt.excluded.atr,
-                'atr_percent': stmt.excluded.atr_percent,
-                # Volume
-                'volume_ma20': stmt.excluded.volume_ma20,
-                'volume_current': stmt.excluded.volume_current,
-                'volume_ratio': stmt.excluded.volume_ratio,
-                'volume_classification': stmt.excluded.volume_classification,
-                'weighted_buy_pressure': stmt.excluded.weighted_buy_pressure,
-                'days_since_volume_spike': stmt.excluded.days_since_volume_spike,
-                # Support/Resistance
-                'support1': stmt.excluded.support1,
-                'support1_percent': stmt.excluded.support1_percent,
-                'support2': stmt.excluded.support2,
-                'support2_percent': stmt.excluded.support2_percent,
-                'resistance1': stmt.excluded.resistance1,
-                'resistance1_percent': stmt.excluded.resistance1_percent,
-                'resistance2': stmt.excluded.resistance2,
-                'resistance2_percent': stmt.excluded.resistance2_percent,
-                # BTC Correlation
-                'btc_price_change_30d': stmt.excluded.btc_price_change_30d,
-                'btc_trend': stmt.excluded.btc_trend,
-                'sol_btc_correlation': stmt.excluded.sol_btc_correlation,
-            }
-        )
+            set_= record
+            )
 
         self.db.execute(stmt)
         self.db.commit()
 
-        print(f"✅ Saved indicators for {timestamp}")
+        print(f"✅ Saved indicators to db for {timestamp}")
         return 1
 
 
@@ -370,7 +273,7 @@ class DataManager:
 
         record = TechnicalAnalyst(
             timestamp=data.get('timestamp'),
-            recommendation=data.get('recommendation'),
+            recommendation_signal=data.get('recommendation_signal'),
             confidence=data.get('confidence'),
             market_condition=data.get('market_condition'),
             summary=data.get('summary'),
@@ -385,40 +288,27 @@ class DataManager:
 
         self.db.add(record)
         self.db.commit()
-
+        print(f"✅ Saved Technical Analysis in db {datetime.now()}")
         return 1
 
 
 
 
     def save_sentiment_analysis(self, data: Dict) -> int:
-        """Save sentiment analysis (combining CFGI + News) to database."""
         from app.database.models.analysis import SentimentAnalyst
 
-        # Extract nested data
-        market_fear_greed = data.get('market_fear_greed', {})
-        news_sentiment_data = data.get('news_sentiment', {})
-
         record = {
-            # Overall signal
             'signal': data.get('signal'),
-            'confidence': data.get('confidence'),  # Nested JSON object: {analysis_confidence, signal_strength, interpretation}
-
-            # CFGI data - stored as nested JSON
-            'market_fear_greed': market_fear_greed,  # {score, classification, social, whales, trends, interpretation}
-
-            # News sentiment - stored as nested JSON
-            'news_sentiment': news_sentiment_data,  # {score, label, catalysts_count, risks_count}
-
-            # Events and analysis
+            'confidence': data.get('confidence'),  
+            'recommendation_signal': data.get('recommendation_signal'),
+            'market_fear_greed': data.get('market_fear_greed', {}),  
+            'news_sentiment': data.get('news_sentiment', {}),  
             'key_events': data.get('key_events'),
             'risk_flags': data.get('risk_flags'),
             'summary': data.get('summary'),
             'what_to_watch': data.get('what_to_watch'),
             'invalidation': data.get('invalidation'),
             'suggested_timeframe': data.get('suggested_timeframe'),
-
-            # Metadata
             'thinking': data.get('thinking')
         }
 
@@ -439,7 +329,7 @@ class DataManager:
         from app.database.models.analysis import ReflectionAnalyst
 
         record = {
-            'recommendation': data.get('recommendation'),
+            'recommendation_signal': data.get('recommendation_signal'),
             'confidence': data.get('confidence'),  # Now a nested JSON object
             'agreement_analysis': data.get('agreement_analysis'),
             'blind_spots': data.get('blind_spots'),
@@ -489,11 +379,9 @@ class DataManager:
 
 
     def get_latest_cfgi(self):
-        """Get most recent CFGI data from database."""
         return self.db.query(CFGIData).order_by(CFGIData.fetched_at.desc()).first()
 
     def should_fetch_cfgi(self) -> bool:
-        """Check if we should fetch fresh CFGI data (True if no data or cache >4 hours old)."""
         latest = self.get_latest_cfgi()
         if latest is None:
             return True
@@ -501,7 +389,6 @@ class DataManager:
         return cache_age > timedelta(hours=CFGI_CACHE_HOURS)
 
     def save_cfgi_data(self, data) -> None:
-        """Save CFGI data to database."""
         cfgi_record = CFGIData(
             score=data.score,
             classification=data.classification,
@@ -514,16 +401,11 @@ class DataManager:
         )
         self.db.add(cfgi_record)
         self.db.commit()
-        print(f"💾 Saved CFGI data: {data.score} ({data.classification})")
+        print(f" Saved CFGI data: {data.score} ({data.classification})")
 
     def get_cfgi_with_cache(self):
-        """
-        Get CFGI data, fetching fresh only if cache is stale (>4 hours).
-        This is the main method to call from sentiment agent.
-        Returns dict or None.
-        """
         if self.should_fetch_cfgi():
-            print("📡 CFGI cache stale, fetching fresh data...")
+            print("CFGI cache stale, fetching fresh data...")
             try:
                 from app.data.fetchers.cfgi_fetcher import CFGIFetcher
                 fetcher = CFGIFetcher()
@@ -533,15 +415,15 @@ class DataManager:
                     self.save_cfgi_data(fresh_data)
                     return self.get_latest_cfgi().to_dict()
                 else:
-                    print("⚠️ Fresh fetch failed, using stale cache if available")
+                    print(" Fresh fetch failed, using stale cache if available")
                     latest = self.get_latest_cfgi()
                     return latest.to_dict() if latest else None
             except Exception as e:
-                print(f"❌ CFGI fetch error: {e}")
+                print(f" CFGI fetch error: {e}")
                 latest = self.get_latest_cfgi()
                 return latest.to_dict() if latest else None
         else:
-            print("✅ Using cached CFGI data (less than 4 hours old)")
+            print(" Using cached CFGI data (less than 4 hours old)")
             latest = self.get_latest_cfgi()
             return latest.to_dict() if latest else None
 

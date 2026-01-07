@@ -99,6 +99,7 @@ Combine CFGI + News:
 ## STEP 5: FINAL RECOMMENDATION
 Based on all analysis:
 - What is the overall sentiment signal?
+- What is the actionable recommendation_signal? (BUY if bullish sentiment, SELL if bearish, HOLD if neutral with no clear direction, WAIT if conflicting signals)
 - What confidence level (consider conflicting signals)?
 - What specific action should a swing trader take?
 - What would invalidate this analysis?
@@ -144,6 +145,8 @@ After your thinking, output the final JSON inside <answer> tags. The JSON must f
 
 {{
     "signal": "BULLISH",
+
+    "recommendation_signal": "BUY|SELL|HOLD|WAIT",
 
     "confidence": {{
         "analysis_confidence": 0.85,
@@ -225,7 +228,9 @@ IMPORTANT NOTES:
 
 6. Valid signal values: STRONG_BULLISH, BULLISH, SLIGHTLY_BULLISH, NEUTRAL, SLIGHTLY_BEARISH, BEARISH, STRONG_BEARISH
 
-7. Confidence is a nested object:
+7. recommendation_signal: Must be BUY, SELL, HOLD, or WAIT (actionable trading recommendation derived from the sentiment signal)
+
+8. Confidence is a nested object:
    - analysis_confidence: 0.70-0.95 (how sure are you in the analysis)
    - signal_strength: 0.0-1.0 (how strong is the directional signal)
    - interpretation: Short sentence explaining both
@@ -234,14 +239,12 @@ IMPORTANT NOTES:
 
 
 def format_for_sentiment_agent(cfgi_data: dict, news_articles: list) -> dict:
-    # Format CFGI data (handle None)
     cfgi_score = cfgi_data.get("score", 50) if cfgi_data else 50
     cfgi_classification = cfgi_data.get("classification", "Neutral") if cfgi_data else "Neutral"
     cfgi_social = cfgi_data.get("social") if cfgi_data else None
     cfgi_whales = cfgi_data.get("whales") if cfgi_data else None
     cfgi_trends = cfgi_data.get("trends") if cfgi_data else None
 
-    # Calculate CFGI data age
     cfgi_age = "No data"
     if cfgi_data and cfgi_data.get("fetched_at"):
         try:
@@ -299,7 +302,7 @@ class SentimentAgent(BaseAgent):
 
     def __init__(self):
         super().__init__(
-            model="claude-3-5-haiku-20241022",  # Using Haiku for cost efficiency
+            model="claude-3-5-haiku-20241022", 
             temperature=0.3
         )
 
@@ -336,28 +339,27 @@ class SentimentAgent(BaseAgent):
 
             sentiment_data = json.loads(answer_json)
 
-            confidence = sentiment_data.get('confidence', {})
-            if isinstance(confidence, (int, float)):
-                confidence = {
-                    'analysis_confidence': 0.75,
-                    'signal_strength': float(confidence),
-                    'interpretation': f'Legacy format: {confidence:.0%} confidence'
-                }
-            elif not isinstance(confidence, dict):
-                # Fallback for invalid format
-                confidence = {
-                    'analysis_confidence': 0.5,
-                    'signal_strength': 0.5,
-                    'interpretation': 'Default confidence'
-                }
-            sentiment_data['confidence'] = confidence
+
+            # confidence = sentiment_data.get('confidence', {})
+            # if isinstance(confidence, (int, float)):
+            #     confidence = {
+            #         'analysis_confidence': 0.75,
+            #         'signal_strength': float(confidence),
+            #         'interpretation': f'Legacy format: {confidence:.0%} confidence'
+            #     }
+            # elif not isinstance(confidence, dict):
+            #     # Fallback for invalid format
+            #     confidence = {
+            #         'analysis_confidence': 0.5,
+            #         'signal_strength': 0.5,
+            #         'interpretation': 'Default confidence'
+            #     }
+            # sentiment_data['confidence'] = confidence
 
             if thinking:
                 sentiment_data['thinking'] = thinking
-            sentiment_data['timestamp'] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             state['sentiment'] = sentiment_data
 
-            # Save to database (this will use the new SentimentAnalyst model)
             dm.save_sentiment_analysis(sentiment_data)
 
         except (json.JSONDecodeError, ValueError) as e:
@@ -366,6 +368,7 @@ class SentimentAgent(BaseAgent):
             # Fallback to neutral sentiment
             state['sentiment'] = {
                 "signal": "NEUTRAL",
+                "recommendation_signal": "HOLD",
                 "confidence": {
                     "analysis_confidence": 0.5,
                     "signal_strength": 0.3,

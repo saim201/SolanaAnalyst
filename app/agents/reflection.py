@@ -24,7 +24,7 @@ YOUR ROLE:
 - Identify blind spots (what each agent missed)
 - Assess agreement/conflict between agents
 - Calculate risk-adjusted confidence
-- Provide unified actionable recommendation
+- Provide unified actionable recommendation_signal
 
 YOUR EXPERTISE:
 - Finding what analysts overlook (blind spot detection)
@@ -131,8 +131,8 @@ Then adjust based on:
 
 CRITICAL RULES:
 - Never go below 0.15 (even worst case has some edge)
-- If recommendation is WAIT → final_confidence should be ≤ 0.35
-- If recommendation is BUY/SELL → final_confidence should be ≥ 0.55
+- If recommendation_signal is WAIT → final_confidence should be ≤ 0.35
+- If recommendation_signal is BUY/SELL → final_confidence should be ≥ 0.55
 - Adjustments should be modest (±0.05 to ±0.12 per factor)
 
 ## Interpretation
@@ -175,7 +175,7 @@ Describe the BIGGEST THREAT (narrative, not level):
 
 <answer>
 {{
-  "recommendation": "BUY|SELL|HOLD|WAIT",
+  "recommendation_signal": "BUY|SELL|HOLD|WAIT",
 
   "confidence": {{
     "analysis_confidence": 0.85,
@@ -241,7 +241,7 @@ class ReflectionAgent(BaseAgent):
 
     def execute(self, state: AgentState) -> AgentState:
         tech = state.get('technical', {})
-        tech_recommendation = tech.get('recommendation', 'HOLD')
+        tech_recommendation = tech.get('recommendation_signal', 'HOLD')
 
         # Handle nested confidence object from Technical agent
         tech_confidence_obj = tech.get('confidence', {})
@@ -474,7 +474,7 @@ class ReflectionAgent(BaseAgent):
             print(f"✅ Final confidence: {reflection_data['confidence']['final_confidence']:.2%} ({reflection_data['confidence'].get('interpretation', 'N/A')})")
 
             # VALIDATE AND OVERRIDE RECOMMENDATION IF NECESSARY
-            llm_recommendation = reflection_data.get('recommendation', 'HOLD')
+            llm_recommendation = reflection_data.get('recommendation_signal', 'HOLD')
             final_recommendation = llm_recommendation
 
             # Critical validation rules (in order of priority)
@@ -521,7 +521,7 @@ class ReflectionAgent(BaseAgent):
                 print(f"⚠️  Recommendation override: {llm_recommendation} → {final_recommendation}")
                 for override in validation_overrides:
                     print(f"    - {override}")
-                reflection_data['recommendation'] = final_recommendation
+                reflection_data['recommendation_signal'] = final_recommendation
 
                 # Add override explanation to reasoning
                 override_text = " | ".join(validation_overrides)
@@ -619,7 +619,7 @@ class ReflectionAgent(BaseAgent):
 
             # Fallback with calculated values
             state['reflection'] = {
-                'recommendation': tech_recommendation,
+                'recommendation_signal': tech_recommendation,
                 'confidence': {
                     'analysis_confidence': 0.5,
                     'final_confidence': max(0.20, confidence_calc['final_confidence']),
@@ -666,7 +666,7 @@ if __name__ == "__main__":
 
     test_state['technical'] = {
         'timestamp': '2026-01-02T13:58:04.992663Z',
-        'recommendation': 'WAIT',
+        'recommendation_signal': 'WAIT',
         'confidence': {
             'analysis_confidence': 0.85,
             'setup_quality': 0.25,
@@ -800,7 +800,7 @@ if __name__ == "__main__":
     print("\n📋 Input State:")
     tech_conf = test_state['technical']['confidence']
     sent_conf = test_state['sentiment']['confidence']
-    print(f"  Technical: {test_state['technical']['recommendation']} @ {tech_conf['setup_quality']:.0%} setup quality")
+    print(f"  Technical: {test_state['technical']['recommendation_signal']} @ {tech_conf['setup_quality']:.0%} setup quality")
     print(f"  Sentiment: {test_state['sentiment']['signal']} @ {sent_conf['signal_strength']:.0%} signal strength")
     print(f"  Volume Ratio: {test_state['technical']['analysis']['volume']['ratio']:.2f}x")
     print(f"  CFGI Score: {test_state['sentiment']['market_fear_greed']['score']}/100")
