@@ -1,124 +1,215 @@
-# Pydantic schemas for API request/response validation.
-
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional, Any
 from enum import Enum
 
 
-
-class TechnicalConfidence(BaseModel):
-    analysis_confidence: float = Field(..., ge=0.0, le=1.0)
-    setup_quality: float = Field(..., ge=0.0, le=1.0)
-    interpretation: str
+class Confidence(BaseModel):
+    score: float = Field(..., ge=0.0, le=1.0)
+    reasoning: str
 
 
-class SentimentConfidence(BaseModel):
-    analysis_confidence: float = Field(..., ge=0.0, le=1.0)
-    signal_strength: float = Field(..., ge=0.0, le=1.0)
-    interpretation: str
+class TrendAnalysis(BaseModel):
+    direction: str
+    strength: str
+    detail: str
 
 
-class ReflectionConfidence(BaseModel):
-    analysis_confidence: float = Field(..., ge=0.0, le=1.0)
-    final_confidence: float = Field(..., ge=0.0, le=1.0)
-    interpretation: str
+class MomentumAnalysis(BaseModel):
+    direction: str
+    strength: str
+    detail: str
 
 
+class VolumeAnalysis(BaseModel):
+    quality: str
+    ratio: float
+    detail: str
+
+
+class Analysis(BaseModel):
+    trend: TrendAnalysis
+    momentum: MomentumAnalysis
+    volume: VolumeAnalysis
+
+
+class TradeSetup(BaseModel):
+    viability: str
+    entry: float
+    stop_loss: float
+    take_profit: float
+    risk_reward: float
+    support: float
+    resistance: float
+    current_price: float
+    timeframe: str
+
+
+class ActionPlan(BaseModel):
+    for_buyers: str
+    for_sellers: str
+    if_holding: str
+    avoid: str
+
+
+class WatchList(BaseModel):
+    bullish_signals: List[str]
+    bearish_signals: List[str]
+
+
+class ConfidenceReasoning(BaseModel):
+    supporting: str
+    concerns: str
 
 
 class TechnicalAnalysisResponse(BaseModel):
     timestamp: str
-    recommendation_signal: str 
-    confidence: TechnicalConfidence
-    market_condition: str 
-    summary: str
-    thinking: List[str]
-    analysis: Dict[str, Any] 
-    trade_setup: Dict[str, Any] 
-    action_plan: Dict[str, Any]
-    watch_list: Dict[str, List[str]]  
+    recommendation_signal: str
+    confidence: Confidence
+    market_condition: str
+    thinking: str
+    analysis: Analysis
+    trade_setup: TradeSetup
+    action_plan: ActionPlan
+    watch_list: WatchList
     invalidation: List[str]
-    confidence_reasoning: Dict[str, Any]  
+    confidence_reasoning: ConfidenceReasoning
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "timestamp": "2026-01-04T10:00:00Z",
-                "recommendation_signal": "WAIT",
-                "confidence": {
-                    "analysis_confidence": 0.85,
-                    "setup_quality": 0.25,
-                    "interpretation": "High confidence in WAIT analysis, poor setup quality"
-                },
-                "market_condition": "QUIET",
-                "summary": "Market in consolidation with dead volume..."
-            }
-        }
+
+class MarketFearGreed(BaseModel):
+    score: int
+    classification: str
+    social: Optional[float] = None
+    whales: Optional[float] = None
+    trends: Optional[float] = None
+    sentiment: str
+    confidence: float
+    interpretation: str
+
+
+class NewsSentiment(BaseModel):
+    sentiment: str
+    confidence: float
+
+
+class CombinedSentiment(BaseModel):
+    sentiment: str
+    confidence: float
+
+
+class KeyEvent(BaseModel):
+    title: str
+    type: str
+    impact: str
+    source: str
+    url: str
+    published_at: str
 
 
 class SentimentAnalysisResponse(BaseModel):
+    recommendation_signal: str
+    market_condition: str
+    confidence: Confidence
     timestamp: str
-    signal: str 
-    recommendation_signal: str  # BUY
-    confidence: SentimentConfidence
-    market_fear_greed: Dict[str, Any]  
-    news_sentiment: Dict[str, Any]  # {score, label, catalysts_count, risks_count}
-    key_events: List[Dict[str, Any]]  # [{title, type, impact, source, url, published_at}]
+    market_fear_greed: MarketFearGreed
+    news_sentiment: NewsSentiment
+    combined_sentiment: CombinedSentiment
+    positive_catalysts: int
+    negative_risks: int
+    key_events: List[KeyEvent]
     risk_flags: List[str]
-    summary: str
     what_to_watch: List[str]
     invalidation: str
     suggested_timeframe: str
     thinking: str
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "timestamp": "2026-01-04T10:00:00Z",
-                "signal": "SLIGHTLY_BULLISH",
-                "recommendation_signal": "BUY",
-                "confidence": {
-                    "analysis_confidence": 0.85,
-                    "signal_strength": 0.65,
-                    "interpretation": "High confidence in bullish sentiment"
-                },
-                "market_fear_greed": {
-                    "score": 55,
-                    "classification": "Neutral",
-                    "social": 98.5,
-                    "whales": 26.5,
-                    "trends": 88.5,
-                    "interpretation": "Retail excitement without institutional backing"
-                }
-            }
-        }
+
+class AgentAlignment(BaseModel):
+    technical_says: str
+    sentiment_says: str
+    alignment_score: float
+    synthesis: str
+
+
+class BlindSpots(BaseModel):
+    technical_missed: str
+    sentiment_missed: str
+    critical_insight: str
+
+
+class Monitoring(BaseModel):
+    watch_next_24h: List[str]
+    invalidation_triggers: List[str]
+
+
+class CalculatedMetrics(BaseModel):
+    bayesian_confidence: float
+    risk_level: str
+    confidence_deviation: float
 
 
 class ReflectionAnalysisResponse(BaseModel):
+    recommendation_signal: str
+    market_condition: str
+    confidence: Confidence
     timestamp: str
-    recommendation_signal: str  # BUY, SELL, HOLD, WAIT
-    confidence: ReflectionConfidence
-    agreement_analysis: Dict[str, Any]  # {alignment_status, alignment_score, technical_view, sentiment_view, synthesis}
-    blind_spots: Dict[str, Any]  # {technical_missed, sentiment_missed, critical_insight}
-    risk_assessment: Dict[str, Any]  # {risk_level, primary_risk, secondary_risks}
-    monitoring: Dict[str, Any]  # {watch_next_24h, invalidation_triggers}
-    timeframe_reconciliation: Optional[Dict[str, Any]] = None  # {technical_timeframe, sentiment_timeframe, reconciled_timeframe, reasoning}
-    reasoning: str
+    agent_alignment: AgentAlignment
+    blind_spots: BlindSpots
+    primary_risk: str
+    monitoring: Monitoring
+    calculated_metrics: CalculatedMetrics
+    final_reasoning: str
     thinking: str
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "timestamp": "2026-01-04T10:00:00Z",
-                "recommendation_signal": "WAIT",
-                "confidence": {
-                    "analysis_confidence": 0.85,
-                    "final_confidence": 0.28,
-                    "interpretation": "High confidence in synthesis, low trade opportunity"
-                }
-            }
-        }
 
+class FinalVerdict(BaseModel):
+    summary: str
+    technical_says: str
+    sentiment_says: str
+    reflection_says: str
+    my_decision: str
+
+
+class TradeSetupOutput(BaseModel):
+    status: str
+    entry_price: float
+    stop_loss: float
+    take_profit: float
+    risk_reward: float
+    position_size: str
+    timeframe: str
+    setup_explanation: str
+
+
+class ActionPlanOutput(BaseModel):
+    for_new_traders: str
+    for_current_holders: str
+    entry_conditions: List[str]
+    exit_conditions: List[str]
+
+
+class WhatToMonitor(BaseModel):
+    critical_next_48h: List[str]
+    daily_checks: List[str]
+    exit_immediately_if: List[str]
+
+
+class RiskAssessment(BaseModel):
+    main_risk: str
+    why_this_position_size: str
+    what_kills_this_trade: List[str]
+
+
+class TraderAnalysisResponse(BaseModel):
+    recommendation_signal: str
+    market_condition: str
+    confidence: Confidence
+    timestamp: str
+    final_verdict: FinalVerdict
+    trade_setup: TradeSetupOutput
+    action_plan: ActionPlanOutput
+    what_to_monitor: WhatToMonitor
+    risk_assessment: RiskAssessment
+    thinking: str
 
 
 class TradeAnalysisResponse(BaseModel):
@@ -130,7 +221,6 @@ class TradeAnalysisResponse(BaseModel):
 
 
 class TradeDecisionResponse(BaseModel):
-    # /lastTrade endpoint#
     id: int
     decision: str
     confidence: float
@@ -140,7 +230,6 @@ class TradeDecisionResponse(BaseModel):
 
 
 class TradeHistoryResponse(BaseModel):
-    #  /trades/history endpoint
     trades: List[TradeDecisionResponse]
     total_trades: int
     timestamp: str

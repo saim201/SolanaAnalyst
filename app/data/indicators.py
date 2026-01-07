@@ -395,18 +395,24 @@ class IndicatorsProcessor:
         
         indicators = {}
         
-        # Trend
-        indicators['ema20'] = float(IndicatorsCalculator.ema(df['close'], 20).iloc[-1] or 0)
-        indicators['ema50'] = float(IndicatorsCalculator.ema(df['close'], 50).iloc[-1] or 0)
-        
+        # Trend - with proper NaN handling
+        ema20_val = IndicatorsCalculator.ema(df['close'], 20).iloc[-1]
+        ema50_val = IndicatorsCalculator.ema(df['close'], 50).iloc[-1]
+        indicators['ema20'] = float(ema20_val) if pd.notna(ema20_val) else 0.0
+        indicators['ema50'] = float(ema50_val) if pd.notna(ema50_val) else 0.0
+
         macd_line, signal_line, histogram = IndicatorsCalculator.macd(df['close'])
-        indicators['macd_line'] = float(macd_line.iloc[-1] or 0)
-        indicators['macd_signal'] = float(signal_line.iloc[-1] or 0)
-        indicators['macd_histogram'] = float(histogram.iloc[-1] or 0)
+        macd_val = macd_line.iloc[-1]
+        signal_val = signal_line.iloc[-1]
+        hist_val = histogram.iloc[-1]
+        indicators['macd_line'] = float(macd_val) if pd.notna(macd_val) else 0.0
+        indicators['macd_signal'] = float(signal_val) if pd.notna(signal_val) else 0.0
+        indicators['macd_histogram'] = float(hist_val) if pd.notna(hist_val) else 0.0
         
         # Calculate RSI series first
         rsi_series = IndicatorsCalculator.rsi(df['close'], 14)
-        indicators['rsi14'] = float(rsi_series.iloc[-1] or 0)
+        rsi_value = rsi_series.iloc[-1]
+        indicators['rsi14'] = float(rsi_value) if pd.notna(rsi_value) else 0.0
 
         # Detect RSI divergence
         rsi_divergence = detect_rsi_divergence(df, rsi_series, lookback=14)
@@ -414,8 +420,10 @@ class IndicatorsProcessor:
         indicators['rsi_divergence_strength'] = rsi_divergence['strength']
 
         bb_upper, bb_lower = IndicatorsCalculator.bollinger_bands(df['close'], 20, 2)
-        indicators['bb_upper'] = float(bb_upper.iloc[-1] or 0)
-        indicators['bb_lower'] = float(bb_lower.iloc[-1] or 0)
+        bb_upper_val = bb_upper.iloc[-1]
+        bb_lower_val = bb_lower.iloc[-1]
+        indicators['bb_upper'] = float(bb_upper_val) if pd.notna(bb_upper_val) else 0.0
+        indicators['bb_lower'] = float(bb_lower_val) if pd.notna(bb_lower_val) else 0.0
 
         current_price = float(df['close'].iloc[-1])
 
@@ -433,7 +441,8 @@ class IndicatorsProcessor:
         indicators['weighted_buy_pressure'] = IndicatorsCalculator.calculate_weighted_buy_pressure(df, periods=7)
 
         atr = IndicatorsCalculator.atr(df, 14)
-        indicators['atr'] = float(atr.iloc[-1] or 0)
+        atr_val = atr.iloc[-1]
+        indicators['atr'] = float(atr_val) if pd.notna(atr_val) else 0.0
 
         # VOLUME CALCULATION - Fixed to exclude incomplete candles
         df_complete = exclude_incomplete_candle_df(df)
@@ -447,7 +456,8 @@ class IndicatorsProcessor:
             vol_ma = IndicatorsCalculator.volume_ma(df_complete['volume'], 20)
             # Use the last COMPLETE candle's volume, not today's partial
             current_vol = float(df_complete['volume'].iloc[-1])
-            indicators['volume_ma20'] = float(vol_ma.iloc[-1] or 0)
+            vol_ma_val = vol_ma.iloc[-1]
+            indicators['volume_ma20'] = float(vol_ma_val) if pd.notna(vol_ma_val) else 0.0
             indicators['volume_current'] = current_vol
             indicators['volume_ratio'] = IndicatorsCalculator.volume_ratio(current_vol, indicators['volume_ma20'])
 

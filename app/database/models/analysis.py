@@ -8,18 +8,17 @@ class TechnicalAnalyst(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    timestamp = Column(String(50))  # Agent's timestamp
-    recommendation_signal = Column(String(10))  # BUY,
-    confidence = Column(JSON)  
-    market_condition = Column(String(20))  # TRENDING
-    summary = Column(Text)  
-    thinking = Column(JSON)  
-    analysis = Column(JSON)  # {trend, momentum, volume} 
-    trade_setup = Column(JSON)  
-    action_plan = Column(JSON) 
-    watch_list = Column(JSON) 
-    invalidation = Column(JSON) 
-    confidence_reasoning = Column(JSON) 
+    timestamp = Column(String(50))
+    recommendation_signal = Column(String(10))
+    confidence = Column(JSON)
+    market_condition = Column(String(20))
+    thinking = Column(Text)
+    analysis = Column(JSON)
+    trade_setup = Column(JSON)
+    action_plan = Column(JSON)
+    watch_list = Column(JSON)
+    invalidation = Column(JSON)
+    confidence_reasoning = Column(JSON)
 
     __table_args__ = (
         Index('idx_technical_timestamp', 'timestamp'),
@@ -28,65 +27,48 @@ class TechnicalAnalyst(Base):
 
 
 class SentimentAnalyst(Base):
-
     __tablename__ = 'sentiment_analyst'
 
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    signal = Column(String(30), nullable=False)  # market_signal BULLISH, BEARISH, NEUTRAL
-    confidence = Column(JSON, nullable=False)  
-    recommendation_signal = Column(String(10))  # BUY,
-    market_fear_greed = Column(JSON, nullable=True)  # {score, classification, social, whales, trends, interpretation}
-    news_sentiment = Column(JSON, nullable=True)  # {score, label, catalysts_count, risks_count}
-    key_events = Column(JSON, nullable=True)
-    risk_flags = Column(JSON, nullable=True)
-    summary = Column(Text, nullable=True)
-    what_to_watch = Column(JSON, nullable=True)
-    invalidation = Column(Text, nullable=True)
-    suggested_timeframe = Column(String(20), nullable=True)
-    thinking = Column(Text, nullable=True)
-    model_used = Column(String(50), default="claude-3-5-haiku-20241022")
     created_at = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(String(50))
+    recommendation_signal = Column(String(10))
+    market_condition = Column(String(20))
+    confidence = Column(JSON)
+    market_fear_greed = Column(JSON)
+    news_sentiment = Column(JSON)
+    combined_sentiment = Column(JSON)
+    positive_catalysts = Column(Integer)
+    negative_risks = Column(Integer)
+    key_events = Column(JSON)
+    risk_flags = Column(JSON)
+    what_to_watch = Column(JSON)
+    invalidation = Column(Text)
+    suggested_timeframe = Column(String(20))
+    thinking = Column(Text)
 
     __table_args__ = (
         Index('idx_sentiment_timestamp', 'timestamp'),
-        Index('idx_sentiment_signal', 'signal'),
+        Index('idx_sentiment_recommendation', 'recommendation_signal'),
     )
-
-    def to_dict(self):
-        return {
-            "signal": self.signal,
-            "confidence": self.confidence,  # Nested JSON object from DB
-            "market_fear_greed": self.market_fear_greed,  # Nested JSON object from DB
-            "news_sentiment": self.news_sentiment,  # Nested JSON object from DB
-            "key_events": self.key_events or [],
-            "risk_flags": self.risk_flags or [],
-            "summary": self.summary,
-            "what_to_watch": self.what_to_watch or [],
-            "invalidation": self.invalidation,
-            "suggested_timeframe": self.suggested_timeframe,
-            "timestamp": self.timestamp.isoformat() if self.timestamp else None
-        }
-
-
-
-
 
 
 class ReflectionAnalyst(Base):
     __tablename__ = 'reflection_analyst'
 
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    recommendation_signal = Column(String(20), nullable=False)
-    confidence = Column(JSON, nullable=False)  
-    agreement_analysis = Column(JSON, nullable=True)
-    blind_spots = Column(JSON, nullable=True)
-    risk_assessment = Column(JSON, nullable=True)
-    monitoring = Column(JSON, nullable=True)
-    reasoning = Column(Text, nullable=True)
-    thinking = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(String(50))
+    recommendation_signal = Column(String(10))
+    market_condition = Column(String(20))
+    confidence = Column(JSON)
+    agent_alignment = Column(JSON)
+    blind_spots = Column(JSON)
+    primary_risk = Column(Text)
+    monitoring = Column(JSON)
+    calculated_metrics = Column(JSON)
+    final_reasoning = Column(Text)
+    thinking = Column(Text)
 
     __table_args__ = (
         Index('idx_reflection_timestamp', 'timestamp'),
@@ -94,23 +76,23 @@ class ReflectionAnalyst(Base):
     )
 
 
-
-
 class TraderAnalyst(Base):
     __tablename__ = 'trader_analyst'
 
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime(timezone=True), nullable=False, index=True, default=lambda: datetime.now(timezone.utc))
-    decision = Column(String(20), nullable=False, index=True)  # BUY/SELL/HOLD
-    confidence = Column(Float, nullable=False)
-    reasoning = Column(Text, nullable=False)
-    agent_synthesis = Column(JSON, nullable=True)
-    execution_plan = Column(JSON, nullable=True)
-    risk_management = Column(JSON, nullable=True)
-    thinking = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(String(50))
+    recommendation_signal = Column(String(10))
+    market_condition = Column(String(50))
+    confidence = Column(JSON)
+    final_verdict = Column(JSON)
+    trade_setup = Column(JSON)
+    action_plan = Column(JSON)
+    what_to_monitor = Column(JSON)
+    risk_assessment = Column(JSON)
+    thinking = Column(Text)
 
     __table_args__ = (
         Index('idx_trader_timestamp', 'timestamp'),
-        Index('idx_trader_decision', 'decision'),
+        Index('idx_trader_recommendation', 'recommendation_signal'),
     )

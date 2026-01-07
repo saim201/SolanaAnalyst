@@ -34,17 +34,15 @@ class DataManager:
                 'openPrice': float(row['openPrice']),
                 'highPrice': float(row['highPrice']),
                 'lowPrice': float(row['lowPrice']),
-                'volume': row['volume'],
-                'quoteVolume': int(row['quoteVolume']),
+                'volume': float(row['volume']),
+                'quoteVolume': float(row['quoteVolume']),
                 'timestamp': row['timestamp']
             }
             records.append(record)
 
+        # Ticker is time-series data - just insert new records, skip duplicates
         stmt = insert(TickerModel).values(records)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=['timestamp'],
-            set_=records
-        )
+        stmt = stmt.on_conflict_do_nothing(index_elements=['timestamp'])
 
         self.db.execute(stmt)
         self.db.commit()
@@ -74,7 +72,18 @@ class DataManager:
         stmt = insert(CandlestickModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['open_time'],
-            set_=records
+            set_={
+                'open': stmt.excluded.open,
+                'high': stmt.excluded.high,
+                'low': stmt.excluded.low,
+                'close': stmt.excluded.close,
+                'close_time': stmt.excluded.close_time,
+                'volume': stmt.excluded.volume,
+                'quote_volume': stmt.excluded.quote_volume,
+                'num_trades': stmt.excluded.num_trades,
+                'taker_buy_base': stmt.excluded.taker_buy_base,
+                'taker_buy_quote': stmt.excluded.taker_buy_quote,
+            }
         )
 
         self.db.execute(stmt)
@@ -105,7 +114,18 @@ class DataManager:
         stmt = insert(CandlestickIntradayModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['open_time'],
-            set_=records
+            set_={
+                'open': stmt.excluded.open,
+                'high': stmt.excluded.high,
+                'low': stmt.excluded.low,
+                'close': stmt.excluded.close,
+                'close_time': stmt.excluded.close_time,
+                'volume': stmt.excluded.volume,
+                'quote_volume': stmt.excluded.quote_volume,
+                'num_trades': stmt.excluded.num_trades,
+                'taker_buy_base': stmt.excluded.taker_buy_base,
+                'taker_buy_quote': stmt.excluded.taker_buy_quote,
+            }
         )
 
         self.db.execute(stmt)
@@ -124,17 +144,15 @@ class DataManager:
                 'openPrice': float(row['openPrice']),
                 'highPrice': float(row['highPrice']),
                 'lowPrice': float(row['lowPrice']),
-                'volume': row['volume'],
-                'quoteVolume': int(row['quoteVolume']),
+                'volume': float(row['volume']),
+                'quoteVolume': float(row['quoteVolume']),
                 'timestamp': row['timestamp']
             }
             records.append(record)
 
+        # BTC Ticker is time-series data - just insert new records, skip duplicates
         stmt = insert(BTCTickerModel).values(records)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=['timestamp'],
-            set_=records
-        )
+        stmt = stmt.on_conflict_do_nothing(index_elements=['timestamp'])
 
         self.db.execute(stmt)
         self.db.commit()
@@ -164,7 +182,18 @@ class DataManager:
         stmt = insert(BTCCandlestickModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['open_time'],
-            set_=records
+            set_={
+                'open': stmt.excluded.open,
+                'high': stmt.excluded.high,
+                'low': stmt.excluded.low,
+                'close': stmt.excluded.close,
+                'close_time': stmt.excluded.close_time,
+                'volume': stmt.excluded.volume,
+                'quote_volume': stmt.excluded.quote_volume,
+                'num_trades': stmt.excluded.num_trades,
+                'taker_buy_base': stmt.excluded.taker_buy_base,
+                'taker_buy_quote': stmt.excluded.taker_buy_quote,
+            }
         )
 
         self.db.execute(stmt)
@@ -200,7 +229,14 @@ class DataManager:
         stmt = insert(NewsModel).values(records)
         stmt = stmt.on_conflict_do_update(
             index_elements=['url'],
-            set_=records
+            set_={
+                'title': stmt.excluded.title,
+                'source': stmt.excluded.source,
+                'published_at': stmt.excluded.published_at,
+                'content': stmt.excluded.content,
+                'sentiment': stmt.excluded.sentiment,
+                'priority': stmt.excluded.priority,
+            }
         )
 
         self.db.execute(stmt)
@@ -258,8 +294,8 @@ class DataManager:
         stmt = insert(IndicatorsModel).values(record)
         stmt = stmt.on_conflict_do_update(
             index_elements=['timestamp'],
-            set_= record
-            )
+            set_={k: v for k, v in record.items() if k != 'timestamp'}
+        )
 
         self.db.execute(stmt)
         self.db.commit()
@@ -276,7 +312,6 @@ class DataManager:
             recommendation_signal=data.get('recommendation_signal'),
             confidence=data.get('confidence'),
             market_condition=data.get('market_condition'),
-            summary=data.get('summary'),
             thinking=data.get('thinking'),
             analysis=data.get('analysis'),
             trade_setup=data.get('trade_setup'),
@@ -298,14 +333,17 @@ class DataManager:
         from app.database.models.analysis import SentimentAnalyst
 
         record = {
-            'signal': data.get('signal'),
-            'confidence': data.get('confidence'),  
+            'timestamp': data.get('timestamp'),
             'recommendation_signal': data.get('recommendation_signal'),
-            'market_fear_greed': data.get('market_fear_greed', {}),  
-            'news_sentiment': data.get('news_sentiment', {}),  
+            'market_condition': data.get('market_condition'),
+            'confidence': data.get('confidence'),
+            'market_fear_greed': data.get('market_fear_greed'),
+            'news_sentiment': data.get('news_sentiment'),
+            'combined_sentiment': data.get('combined_sentiment'),
+            'positive_catalysts': data.get('positive_catalysts'),
+            'negative_risks': data.get('negative_risks'),
             'key_events': data.get('key_events'),
             'risk_flags': data.get('risk_flags'),
-            'summary': data.get('summary'),
             'what_to_watch': data.get('what_to_watch'),
             'invalidation': data.get('invalidation'),
             'suggested_timeframe': data.get('suggested_timeframe'),
@@ -313,10 +351,6 @@ class DataManager:
         }
 
         stmt = insert(SentimentAnalyst).values(record)
-        # stmt = stmt.on_conflict_do_update(
-        #     index_elements=['timestamp'],
-        #     set_=record
-        # )
 
         self.db.execute(stmt)
         self.db.commit()
@@ -329,21 +363,20 @@ class DataManager:
         from app.database.models.analysis import ReflectionAnalyst
 
         record = {
+            'timestamp': data.get('timestamp'),
             'recommendation_signal': data.get('recommendation_signal'),
-            'confidence': data.get('confidence'),  # Now a nested JSON object
-            'agreement_analysis': data.get('agreement_analysis'),
+            'market_condition': data.get('market_condition'),
+            'confidence': data.get('confidence'),
+            'agent_alignment': data.get('agent_alignment'),
             'blind_spots': data.get('blind_spots'),
-            'risk_assessment': data.get('risk_assessment'),
+            'primary_risk': data.get('primary_risk'),
             'monitoring': data.get('monitoring'),
-            'reasoning': data.get('reasoning'),
+            'calculated_metrics': data.get('calculated_metrics'),
+            'final_reasoning': data.get('final_reasoning'),
             'thinking': data.get('thinking')
         }
 
         stmt = insert(ReflectionAnalyst).values(record)
-        # stmt = stmt.on_conflict_do_update(
-        #     index_elements=['timestamp'],
-        #     set_=record
-        # )
 
         self.db.execute(stmt)
         self.db.commit()
@@ -352,29 +385,27 @@ class DataManager:
 
 
 
-    def save_trader_decision(self, timestamp: datetime, data: Dict) -> int:
+    def save_trader_decision(self, data: Dict) -> int:
         from app.database.models.analysis import TraderAnalyst
 
         record = {
-            'timestamp': timestamp,
-            'decision': data.get('decision'),
+            'timestamp': data.get('timestamp'),
+            'recommendation_signal': data.get('recommendation_signal'),
+            'market_condition': data.get('market_condition'),
             'confidence': data.get('confidence'),
-            'reasoning': data.get('reasoning'),
-            'agent_synthesis': data.get('agent_synthesis'),
-            'execution_plan': data.get('execution_plan'),
-            'risk_management': data.get('risk_management'),
+            'final_verdict': data.get('final_verdict'),
+            'trade_setup': data.get('trade_setup'),
+            'action_plan': data.get('action_plan'),
+            'what_to_monitor': data.get('what_to_monitor'),
+            'risk_assessment': data.get('risk_assessment'),
             'thinking': data.get('thinking')
         }
 
         stmt = insert(TraderAnalyst).values(record)
-        # stmt = stmt.on_conflict_do_update(
-        #     index_elements=['timestamp'],
-        #     set_=record
-        # )
 
         self.db.execute(stmt)
         self.db.commit()
-        print(f"✅ Saved Trader Decision for {timestamp}")
+        print(f"✅ Saved Trader Decision for {data.get('timestamp')}")
         return 1
 
 

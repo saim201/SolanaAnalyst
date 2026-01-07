@@ -1,7 +1,18 @@
 from abc import ABC, abstractmethod
-from typing import TypedDict, Literal, Dict, List, Optional
+from typing import TypedDict, Literal, Dict, List, Optional, Any
 
 
+
+# SHARED TYPES
+class Confidence(TypedDict):
+    score: float  # 0.0 to 1.0
+    reasoning: str  # 2-3 sentences explaining the confidence
+
+
+
+
+
+# TECHNICAL AGENT OUTPUT
 class TrendAnalysis(TypedDict):
     direction: Literal['BULLISH', 'BEARISH', 'NEUTRAL']
     strength: Literal['STRONG', 'MODERATE', 'WEAK']
@@ -28,10 +39,10 @@ class Analysis(TypedDict):
 
 class TradeSetup(TypedDict):
     viability: Literal['VALID', 'WAIT', 'INVALID']
-    entry: Optional[float]
-    stop_loss: Optional[float]
-    take_profit: Optional[float]
-    risk_reward: Optional[float]
+    entry: float
+    stop_loss: float
+    take_profit: float
+    risk_reward: float
     support: float
     resistance: float
     current_price: float
@@ -51,23 +62,16 @@ class WatchList(TypedDict):
 
 
 class ConfidenceReasoning(TypedDict):
-    supporting: List[str]
-    concerns: List[str]
+    supporting: str
+    concerns: str
 
 
-class TechnicalConfidence(TypedDict):
-    analysis_confidence: float
-    setup_quality: float
-    interpretation: str
-
-
-class technicalOutput(TypedDict):
+class TechnicalOutput(TypedDict):
     timestamp: str
     recommendation_signal: Literal['BUY', 'SELL', 'HOLD', 'WAIT']
-    confidence: TechnicalConfidence
+    confidence: Confidence
     market_condition: Literal['TRENDING', 'RANGING', 'VOLATILE', 'QUIET']
-    summary: str
-    thinking: List[str]
+    thinking: str
     analysis: Analysis
     trade_setup: TradeSetup
     action_plan: ActionPlan
@@ -76,69 +80,71 @@ class technicalOutput(TypedDict):
     confidence_reasoning: ConfidenceReasoning
 
 
+
+
+# SENTIMENT AGENT OUTPUT
 class MarketFearGreed(TypedDict):
-    score: float
-    classification: str
+    score: int  # 0-100
+    classification: str  # e.g., "Greed", "Fear", "Neutral"
     social: Optional[float]
     whales: Optional[float]
     trends: Optional[float]
+    sentiment: Literal['BULLISH', 'BEARISH', 'NEUTRAL']
+    confidence: float
     interpretation: str
 
 
 class NewsSentiment(TypedDict):
-    score: float
-    label: str
-    catalysts_count: int
-    risks_count: int
+    sentiment: Literal['BULLISH', 'BEARISH', 'NEUTRAL']
+    confidence: float
+
+
+class CombinedSentiment(TypedDict):
+    sentiment: Literal['BULLISH', 'BEARISH', 'NEUTRAL']
+    confidence: float
 
 
 class KeyEvent(TypedDict):
     title: str
-    published_at: str
-    url: str
-    type: str
-    impact: str
+    type: str  # e.g., "PARTNERSHIP", "UPGRADE", etc.
+    impact: Literal['BULLISH', 'BEARISH', 'NEUTRAL']
     source: str
-
-
-class SentimentConfidence(TypedDict):
-    analysis_confidence: float
-    signal_strength: float
-    interpretation: str
+    url: str
+    published_at: str
 
 
 class SentimentOutput(TypedDict):
-    signal: str
-    confidence: SentimentConfidence
+    recommendation_signal: Literal['BUY', 'SELL', 'HOLD', 'WAIT']
+    market_condition: Literal['BULLISH', 'BEARISH', 'NEUTRAL']
+    confidence: Confidence
+    timestamp: str
     market_fear_greed: MarketFearGreed
     news_sentiment: NewsSentiment
+    combined_sentiment: CombinedSentiment
+    positive_catalysts: int
+    negative_risks: int
     key_events: List[KeyEvent]
     risk_flags: List[str]
-    summary: str
     what_to_watch: List[str]
     invalidation: str
     suggested_timeframe: str
     thinking: str
 
 
-class AgreementAnalysis(TypedDict):
-    alignment_status: Literal['ALIGNED', 'PARTIAL', 'CONFLICTED']
-    alignment_score: float
-    technical_view: str
-    sentiment_view: str
+
+
+# REFLECTION AGENT OUTPUT
+class AgentAlignment(TypedDict):
+    technical_says: str  # e.g., "BUY (72%)"
+    sentiment_says: str  # e.g., "BULLISH (65%)"
+    alignment_score: float  # 0.0 to 1.0
     synthesis: str
 
 
 class BlindSpots(TypedDict):
-    technical_missed: List[str]
-    sentiment_missed: List[str]
+    technical_missed: str
+    sentiment_missed: str
     critical_insight: str
-
-
-class RiskAssessment(TypedDict):
-    primary_risk: str
-    risk_level: Literal['LOW', 'MEDIUM', 'HIGH']
-    secondary_risks: List[str]
 
 
 class Monitoring(TypedDict):
@@ -146,73 +152,85 @@ class Monitoring(TypedDict):
     invalidation_triggers: List[str]
 
 
-class ReflectionConfidence(TypedDict):
-    analysis_confidence: float
-    final_confidence: float
-    interpretation: str
-
-
-class TimeframeReconciliation(TypedDict):
-    technical_timeframe: str
-    sentiment_timeframe: str
-    reconciled_timeframe: str
-    reasoning: str
+class CalculatedMetrics(TypedDict):
+    bayesian_confidence: float
+    risk_level: Literal['LOW', 'MEDIUM', 'HIGH']
+    confidence_deviation: float  # Difference between LLM and Bayesian
 
 
 class ReflectionOutput(TypedDict):
     recommendation_signal: Literal['BUY', 'SELL', 'HOLD', 'WAIT']
-    confidence: ReflectionConfidence
+    market_condition: Literal['ALIGNED', 'CONFLICTED', 'MIXED']
+    confidence: Confidence
     timestamp: str
-    agreement_analysis: AgreementAnalysis
+    agent_alignment: AgentAlignment
     blind_spots: BlindSpots
-    risk_assessment: RiskAssessment
+    primary_risk: str
     monitoring: Monitoring
-    timeframe_reconciliation: TimeframeReconciliation
-    reasoning: str
+    calculated_metrics: CalculatedMetrics  # Reference metrics for validation
+    final_reasoning: str
     thinking: str
 
 
-class AgentSynthesis(TypedDict):
-    technical_weight: float
-    news_weight: float
-    reflection_weight: float
-    weighted_confidence: float
-    agreement_summary: str
-    technical_contribution: str
-    news_contribution: str
-    reflection_contribution: str
 
 
-class ExecutionPlan(TypedDict):
-    entry_timing: str
-    position_size: str
-    entry_price_target: float
+# TRADER AGENT OUTPUT
+class FinalVerdict(TypedDict):
+    summary: str
+    technical_says: str
+    sentiment_says: str
+    reflection_says: str
+    my_decision: str
+
+
+class TradeSetupOutput(TypedDict):
+    status: Literal['READY_TO_ENTER', 'WAIT_FOR_SETUP', 'HOLD_POSITION', 'EXIT_RECOMMENDED']
+    entry_price: float
     stop_loss: float
     take_profit: float
+    risk_reward: float
+    position_size: str
     timeframe: str
-    risk_reward_ratio: str
+    setup_explanation: str
 
 
-class RiskManagement(TypedDict):
-    max_loss_per_trade: str
-    primary_risk: str
-    secondary_risks: List[str]
+class ActionPlanOutput(TypedDict):
+    for_new_traders: str
+    for_current_holders: str
+    entry_conditions: List[str]
     exit_conditions: List[str]
-    monitoring_checklist: List[str]
+
+
+class WhatToMonitor(TypedDict):
+    critical_next_48h: List[str]
+    daily_checks: List[str]
+    exit_immediately_if: List[str]
+
+
+class RiskAssessment(TypedDict):
+    main_risk: str
+    why_this_position_size: str
+    what_kills_this_trade: List[str]
 
 
 class TraderOutput(TypedDict):
-    decision: Literal['BUY', 'SELL', 'HOLD']
-    confidence: float
-    reasoning: str
-    agent_synthesis: AgentSynthesis
-    execution_plan: ExecutionPlan
-    risk_management: RiskManagement
+    recommendation_signal: Literal['BUY', 'SELL', 'HOLD', 'WAIT']
+    market_condition: Literal['BULLISH', 'BEARISH', 'NEUTRAL', 'BULLISH_BUT_CAUTIOUS', 'BEARISH_BUT_WATCHING']
+    confidence: Confidence
+    timestamp: str
+    final_verdict: FinalVerdict
+    trade_setup: TradeSetupOutput
+    action_plan: ActionPlanOutput
+    what_to_monitor: WhatToMonitor
+    risk_assessment: RiskAssessment
     thinking: str
 
 
+
+
+# AGENT STATE
 class AgentState(TypedDict, total=False):
-    technical: Optional[technicalOutput]
+    technical: Optional[TechnicalOutput]
     sentiment: Optional[SentimentOutput]
     reflection: Optional[ReflectionOutput]
     trader: Optional[TraderOutput]

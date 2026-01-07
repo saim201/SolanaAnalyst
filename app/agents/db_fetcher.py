@@ -193,12 +193,19 @@ class DataQuery:
             TraderAnalyst.timestamp.desc()
         ).limit(limit).all()
 
-        return [{
-            "timestamp": d.timestamp,
-            "decision": d.decision,
-            "confidence": d.confidence,
-            "reasoning": d.reasoning,
-        } for d in decisions]
+        result = []
+        for d in decisions:
+            confidence_obj = d.confidence if isinstance(d.confidence, dict) else {"score": 0.5, "reasoning": ""}
+            final_verdict = d.final_verdict if isinstance(d.final_verdict, dict) else {}
+
+            result.append({
+                "timestamp": d.timestamp if isinstance(d.timestamp, str) else d.timestamp.isoformat(),
+                "decision": d.recommendation_signal,
+                "confidence": confidence_obj.get("score", 0.5),
+                "reasoning": final_verdict.get("summary", "No reasoning available"),
+            })
+
+        return result
 
 
 

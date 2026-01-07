@@ -34,6 +34,8 @@ SOLANA CONTEXT:
 - SOL is a high-volatility L1 blockchain cryptocurrency
 - Typical 15-30% pullbacks even in strong uptrends - this is normal
 - Usually 0.75-0.90 correlation with BTC - when BTC moves, SOL often follows with amplification
+
+CRITICAL: Your confidence.reasoning must paint a clear picture with specific data. Don't just list facts - tell the story of what's happening and why it matters. A trader should read it and immediately understand your conviction level and the key factors driving it.
 """
 
 
@@ -147,37 +149,42 @@ Work through these steps IN ORDER:
 ### CONFIDENCE GUIDELINES:
 
 <confidence_guidelines>
-## Analysis Confidence (0.70-0.95)
-How confident are you in this ANALYSIS (not the trade)?
+## Confidence Score (0.0-1.0)
+How confident are you in this recommendation overall?
 
-- 0.90-0.95: Crystal clear market state, all indicators align
-- 0.80-0.89: Clear picture, minor ambiguities
-- 0.70-0.79: Reasonable clarity, some conflicting signals
+- 0.80-1.00: Very high confidence, strong conviction
+- 0.65-0.79: High confidence, good setup
+- 0.50-0.64: Moderate confidence, acceptable but watch closely
+- 0.35-0.49: Low confidence, edge is unclear
+- 0.00-0.34: Very low confidence, avoid trading
 
-NOTE: Even a WAIT recommendation_signal should have HIGH analysis_confidence if you're sure it's time to wait!
+## Confidence Reasoning (CRITICAL)
+Write 2-3 sentences that paint a picture of WHY this recommendation:
+- Include SPECIFIC DATA (volume ratio, RSI values, support/resistance prices, days since volume spike)
+- Tell the STORY of what's happening in the market
+- Connect the dots - show HOW the data leads to your recommendation
+- Use NATURAL language like explaining to a trader friend
+-  Don't just list facts robotically
+-  Don't use vague phrases like "indicators look good"
 
-## Setup Quality (0.0-1.0)
-How good is the TRADE SETUP (if someone were to trade)?
+**Examples of GOOD reasoning**:
 
-- 0.80-1.00: Excellent setup, multiple confirmations
-- 0.60-0.79: Good setup, some concerns
-- 0.40-0.59: Moderate setup, significant concerns
-- 0.20-0.39: Poor setup, major issues
-- 0.00-0.19: Invalid setup, do not trade
+"High confidence (0.82) in this BUY - price broke above EMA50 at $145 with volume surging to 1.8x average, confirming institutional interest. RSI at 66 is healthy (not overbought), and the $142 support gives us a clean 3.2:1 risk/reward setup for a 3-5 day swing."
 
-CRITICAL RULES:
-- If recommendation_signal is WAIT → setup_quality should be ≤ 0.35
-- If volume_ratio < 0.7 → setup_quality should be ≤ 0.25
-- If risk/reward < 1.5 → setup_quality should be ≤ 0.40
-- If recommendation_signal is BUY/SELL → setup_quality should be ≥ 0.65
+"Strong confidence (0.85) in WAIT despite bullish momentum - volume has been dead at 0.56x average for 43 straight days with no spike, making this rally fragile. Combine that with bearish BTC correlation (0.92) and testing resistance at $144.93, there's no edge here until volume returns."
 
-## Interpretation
-Explain WHY these confidence levels with SPECIFIC data:
-- "I'm 88% confident in WAIT because volume is dead (0.56x for 43 days) and we're at resistance with 0.88:1 risk/reward"
-- "High confidence BUY (85%) - volume spike 2.1x with breakout above $140, RSI 58 (healthy), strong 1.8:1 R/R"
-- "Moderate confidence (72%) - trend is bullish but BTC correlation (0.91) with bearish BTC creates uncertainty"
+"Moderate confidence (0.68) for this HOLD - we're in a tight $135-137 range with declining volume (0.82x), suggesting accumulation before next move. MACD showing bullish divergence hints upside potential, but need confirmation above $138 with volume >1.5x to commit capital."
 
-Include: volume ratio, key price levels, risk/reward, or BTC context. Be specific, not generic.
+**Examples of BAD reasoning** :
+
+"High confidence because multiple indicators align and setup quality is good."
+→ No specific data, vague, doesn't explain WHY
+
+"Volume is low and RSI is overbought, creating uncertainty."
+→ Just listing observations, not connecting to recommendation
+
+"The technical setup shows 0.72 confidence with acceptable risk/reward."
+→ Circular logic - explaining confidence score with confidence score
 </confidence_guidelines>
 
 ### OUTPUT FORMAT:
@@ -189,14 +196,11 @@ After your thinking, output the final JSON inside <answer> tags. The JSON must f
   "recommendation_signal": "BUY|SELL|HOLD|WAIT",
 
   "confidence": {{
-    "analysis_confidence": 0.85,
-    "setup_quality": 0.72,
-    "interpretation": "High confidence in analysis, good trade setup"
+    "score": 0.75,
+    "reasoning": "Write 2-3 sentences painting a clear picture: [Market story with prices/trend] → [Volume/momentum with specific numbers] → [Risk/reward or key factor]. Be specific and natural."
   }},
 
   "market_condition": "TRENDING|RANGING|VOLATILE|QUIET",
-
-  "summary": "2-3 sentences: What's happening and what to do. Be specific and actionable.",
 
   "thinking": "MARKET STORY
     [Write 2-4 sentences explaining price action, trend direction, where we are in the cycle. Include specific values like EMA levels, price ranges, key resistance/support.]
@@ -282,8 +286,6 @@ IMPORTANT NOTES:
 - Write your full reasoning in <thinking> tags FIRST
 - Then output ONLY valid JSON in <answer> tags
 - All price values should be numbers, not strings
-- Confidence is now a nested object with analysis_confidence, setup_quality, and interpretation
-- If recommending HOLD/WAIT, set entry/stop_loss/take_profit to null but still provide support/resistance/current_price. timeframe should NEVER be null. For WAIT: use "Wait 1-3 days for volume confirmation". For HOLD: use "Monitor next 2-4 days". For BUY/SELL: use any specific timeframe.
 </instructions>
 """
 
@@ -556,57 +558,27 @@ class TechnicalAgent(BaseAgent):
         )
 
         try:
+            # Extract thinking
             thinking_match = re.search(r'<thinking>(.*?)</thinking>', response, re.DOTALL)
             raw_thinking = thinking_match.group(1).strip() if thinking_match else ""
 
+            # Extract JSON from answer tags
             answer_match = re.search(r'<answer>(.*?)</answer>', response, re.DOTALL)
-            if answer_match:
-                json_str = answer_match.group(1).strip()
-            else:
-                json_match = re.search(r'\{[\s\S]*\}', response)
-                if json_match:
-                    json_str = json_match.group(0)
-                else:
-                    raise ValueError("No JSON found in response")
+            json_str = answer_match.group(1).strip() if answer_match else re.search(r'\{[\s\S]*\}', response).group(0)
 
-            json_str = json_str.replace('\u201c', '"').replace('\u201d', '"')
-            json_str = json_str.replace('\u2018', "'").replace('\u2019', "'")
-            json_str = re.sub(r'[\x00-\x1F\x7F]', '', json_str)
+            # Minimal JSON cleaning
+            json_str = re.sub(r'^```json\s*|\s*```$', '', json_str.strip())
+            json_str = json_str[json_str.find('{'):json_str.rfind('}')+1]
 
-            json_str = re.sub(r'^```json\s*', '', json_str)
-            json_str = re.sub(r'\s*```$', '', json_str)
-
-            first_brace = json_str.find('{')
-            last_brace = json_str.rfind('}')
-            if first_brace != -1 and last_brace != -1:
-                json_str = json_str[first_brace:last_brace+1]
-
+            # Parse and structure
             analysis = json.loads(json_str)
-
             timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-            confidence = analysis.get('confidence', {})
-            if isinstance(confidence, (int, float)):
-                # Backward compatibility: convert old single float to nested object
-                confidence = {
-                    'analysis_confidence': 0.75,
-                    'setup_quality': float(confidence),
-                    'interpretation': f'Legacy format: {confidence:.0%} confidence'
-                }
-            elif not isinstance(confidence, dict):
-                # Fallback for invalid format
-                confidence = {
-                    'analysis_confidence': 0.5,
-                    'setup_quality': 0.5,
-                    'interpretation': 'Default confidence'
-                }
 
             state['technical'] = {
                 'timestamp': analysis.get('timestamp', timestamp),
                 'recommendation_signal': analysis.get('recommendation_signal', 'HOLD'),
-                'confidence': confidence,
+                'confidence': analysis.get('confidence', {}),
                 'market_condition': analysis.get('market_condition', 'QUIET'),
-                'summary': analysis.get('summary', ''),
                 'thinking': analysis.get('thinking', []),
                 'analysis': analysis.get('analysis', {}),
                 'trade_setup': analysis.get('trade_setup', {}),
@@ -620,22 +592,18 @@ class TechnicalAgent(BaseAgent):
                 dm.save_technical_analysis(data=state['technical'])
 
 
-        except (json.JSONDecodeError, ValueError) as e:
-            print(f"  Technical agent parsing error: {e}")
+        except (json.JSONDecodeError, ValueError, AttributeError) as e:
+            print(f"⚠️  Technical agent parsing error: {e}")
             print(f"Response preview: {response[:500]}")
 
-            timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
             state['technical'] = {
-                'timestamp': timestamp,
+                'timestamp': datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 'recommendation_signal': 'HOLD',
                 'confidence': {
-                    'analysis_confidence': 0.5,
-                    'setup_quality': 0.0,
-                    'interpretation': f'Analysis error: {str(e)[:50]}'
+                    'score': 0.3,
+                    'reasoning': f'Technical analysis failed - {str(e)[:100]}. Using HOLD as safe default.'
                 },
                 'market_condition': 'QUIET',
-                'summary': f'Analysis error: {str(e)[:100]}',
                 'thinking': [],
                 'analysis': {},
                 'trade_setup': {},
@@ -645,11 +613,8 @@ class TechnicalAgent(BaseAgent):
                 'confidence_reasoning': {},
             }
 
-            try:
-                with DataManager() as dm:
-                    dm.save_technical_analysis(data=state['technical'])
-            except Exception as save_err:
-                print(f"⚠️  Failed to save fallback: {save_err}")
+            with DataManager() as dm:
+                dm.save_technical_analysis(data=state['technical'])
 
         return state
 

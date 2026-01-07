@@ -52,7 +52,6 @@ def get_latest_analysis():
             "recommendation_signal": technical.recommendation_signal,
             "confidence": technical.confidence,
             "market_condition": technical.market_condition,
-            "summary": technical.summary,
             "thinking": technical.thinking,
             "analysis": technical.analysis,
             "trade_setup": technical.trade_setup,
@@ -63,15 +62,17 @@ def get_latest_analysis():
         }
 
         sentiment_data = {
-            "timestamp": sentiment.timestamp.isoformat() if sentiment.timestamp else sentiment.created_at.isoformat(),
-            "signal": sentiment.signal,
+            "timestamp": sentiment.timestamp if sentiment.timestamp else sentiment.created_at.isoformat(),
             "recommendation_signal": sentiment.recommendation_signal,
+            "market_condition": sentiment.market_condition,
             "confidence": sentiment.confidence,
             "market_fear_greed": sentiment.market_fear_greed,
             "news_sentiment": sentiment.news_sentiment,
+            "combined_sentiment": sentiment.combined_sentiment,
+            "positive_catalysts": sentiment.positive_catalysts,
+            "negative_risks": sentiment.negative_risks,
             "key_events": sentiment.key_events or [],
             "risk_flags": sentiment.risk_flags or [],
-            "summary": sentiment.summary,
             "what_to_watch": sentiment.what_to_watch or [],
             "invalidation": sentiment.invalidation,
             "suggested_timeframe": sentiment.suggested_timeframe,
@@ -79,25 +80,29 @@ def get_latest_analysis():
         }
 
         reflection_data = {
-            "timestamp": reflection.timestamp.isoformat() if reflection.timestamp else reflection.created_at.isoformat(),
+            "timestamp": reflection.timestamp if reflection.timestamp else reflection.created_at.isoformat(),
             "recommendation_signal": reflection.recommendation_signal,
+            "market_condition": reflection.market_condition,
             "confidence": reflection.confidence,
-            "agreement_analysis": reflection.agreement_analysis,
+            "agent_alignment": reflection.agent_alignment,
             "blind_spots": reflection.blind_spots,
-            "risk_assessment": reflection.risk_assessment,
+            "primary_risk": reflection.primary_risk,
             "monitoring": reflection.monitoring,
-            "reasoning": reflection.reasoning,
+            "calculated_metrics": reflection.calculated_metrics,
+            "final_reasoning": reflection.final_reasoning,
             "thinking": reflection.thinking
         }
 
         trader_data = {
-            "timestamp": trader.timestamp.isoformat() if trader.timestamp else trader.created_at.isoformat(),
-            "decision": trader.decision,
+            "timestamp": trader.timestamp if trader.timestamp else trader.created_at.isoformat(),
+            "recommendation_signal": trader.recommendation_signal,
+            "market_condition": trader.market_condition,
             "confidence": trader.confidence,
-            "reasoning": trader.reasoning,
-            "agent_synthesis": trader.agent_synthesis,
-            "execution_plan": trader.execution_plan,
-            "risk_management": trader.risk_management,
+            "final_verdict": trader.final_verdict,
+            "trade_setup": trader.trade_setup,
+            "action_plan": trader.action_plan,
+            "what_to_monitor": trader.what_to_monitor,
+            "risk_assessment": trader.risk_assessment,
             "thinking": trader.thinking
         }
 

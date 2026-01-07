@@ -29,6 +29,7 @@ Your analysis philosophy:
 - Hype and speculation should be discounted heavily
 
 You are skeptical, data-driven, and always consider "what could go wrong."
+
 """
 
 
@@ -108,35 +109,46 @@ Based on all analysis:
 ### CONFIDENCE GUIDELINES:
 
 <confidence_guidelines>
-## Analysis Confidence (0.70-0.95)
-How confident are you in this SENTIMENT ANALYSIS?
+## Confidence Score (0.0-1.0)
+How confident are you in this sentiment-based recommendation?
 
-- 0.90-0.95: Multiple reliable sources confirm, clear consensus
-- 0.80-0.89: Good source quality, minor conflicts
-- 0.70-0.79: Reasonable sources, some ambiguity
+- 0.80-1.00: Very strong sentiment signal, multiple credible sources
+- 0.65-0.79: Strong signal, good source quality
+- 0.50-0.64: Moderate signal, mixed or aging news
+- 0.35-0.49: Weak signal, conflicting data or questionable sources
+- 0.00-0.34: No clear signal, noise only
 
-NOTE: Even a NEUTRAL signal should have HIGH analysis_confidence if you're confident sentiment is neutral!
+## Confidence Reasoning (CRITICAL)
+Write 2-3 sentences that paint the sentiment picture:
 
-## Signal Strength (0.0-1.0)
-How strong is the DIRECTIONAL SIGNAL?
+ **Must include**:
+- CFGI score and what it means (e.g., "CFGI at 66 (Greed)")
+- Specific news titles and dates (e.g., "Morgan Stanley ETF filing on Jan 6")
+- Source credibility (e.g., "from reputable CoinDesk")
+- How CFGI + news combine to create edge
 
-- 0.80-1.00: Very strong bullish/bearish signal, multiple catalysts
-- 0.60-0.79: Strong signal, good catalysts
-- 0.40-0.59: Moderate signal, mixed catalysts
-- 0.20-0.39: Weak signal, few catalysts or conflicts
-- 0.00-0.19: No clear signal, neutral
+**Natural storytelling** - connect the dots, don't just list
+**No vague phrases** like "sentiment is positive"
+**No listing** without context
 
-CRITICAL RULES:
-- If signal is NEUTRAL → signal_strength should be ≤ 0.35
-- If major risk flags present → signal_strength should be ≤ 0.45
-- If CFGI extreme (>80 or <20) → contrarian signal should have high strength (≥0.70)
-- If news is >72h old → signal_strength penalty
+**GOOD Examples**:
 
-## Interpretation
-Combine both into a short sentence:
-- "High confidence in analysis, strong bullish signal from RWA catalysts"
-- "Very confident sentiment is neutral - mixed news with no clear direction"
-- "Clear bearish analysis from regulatory concerns"
+"High confidence (0.82) - CFGI at 72 (Greed) but justified by genuine catalysts: Morgan Stanley ETF filing (Jan 6, CoinDesk) and Ondo Finance tokenization partnership (Dec 24, official). Retail excitement backed by institutional validation creates strong bullish edge, though brief stablecoin depeg adds minor caution."
+
+"Low confidence (0.38) despite CFGI showing Fear at 28 - all recent news is 5+ days old with no fresh catalysts. Whale accumulation mentioned on Jan 1 (Santiment) lacks volume confirmation from technicals. Sentiment signal exists but stale data means edge has likely faded."
+
+"Strong confidence (0.78) in BEARISH call - CFGI hit Extreme Greed at 84 (contrarian sell signal) while key risk flag emerged: Solana network outage (2 hours on Dec 30, verified by official sources). Euphoric retail positioning into reliability concerns creates high-probability reversal setup."
+
+**BAD Examples** :
+
+"Bullish sentiment from positive news and good CFGI score"
+→ No specifics, no dates, doesn't paint picture
+
+"Confidence is high because multiple factors align"
+→ Generic, could apply to anything
+
+"News sentiment at 0.68 with CFGI showing greed"
+→ Just stating data, not explaining WHY it matters
 </confidence_guidelines>
 
 ### OUTPUT FORMAT:
@@ -144,15 +156,16 @@ Combine both into a short sentence:
 After your thinking, output the final JSON inside <answer> tags. The JSON must follow this EXACT structure:
 
 {{
-    "signal": "BULLISH",
-
     "recommendation_signal": "BUY|SELL|HOLD|WAIT",
 
+    "market_condition": "BULLISH|BEARISH|NEUTRAL",
+
     "confidence": {{
-        "analysis_confidence": 0.85,
-        "signal_strength": 0.72,
-        "interpretation": "High confidence in analysis, strong bullish signal"
+        "score": 0.68,
+        "reasoning": "Write 2-3 sentences: [CFGI interpretation] → [News analysis with specific titles/dates/sources] → [How they combine for overall edge]. Be specific and tell the story."
     }},
+
+    "timestamp": "2026-01-06T12:34:56Z",
 
     "market_fear_greed": {{
         "score": {cfgi_score},
@@ -160,14 +173,21 @@ After your thinking, output the final JSON inside <answer> tags. The JSON must f
         "social": {cfgi_social_raw},
         "whales": {cfgi_whales_raw},
         "trends": {cfgi_trends_raw},
+        "sentiment": "BULLISH|BEARISH|NEUTRAL",
+        "confidence": 0.75,
         "interpretation": "Your interpretation of what CFGI data means for trading"
     }},
 
     "news_sentiment": {{
-        "score": 0.68,
-        "label": "CAUTIOUSLY_BULLISH",
-        "catalysts_count": 3,
-        "risks_count": 1
+        "sentiment": "BULLISH|BEARISH|NEUTRAL",
+        "confidence": 0.65,
+        "positive_catalysts": 3,
+        "negative_risks": 1
+    }},
+
+    "combined_sentiment": {{
+        "sentiment": "BULLISH|BEARISH|NEUTRAL",
+        "confidence": 0.68
     }},
 
     "key_events": [
@@ -185,8 +205,6 @@ After your thinking, output the final JSON inside <answer> tags. The JSON must f
         "Any identified risks"
     ],
 
-    "summary": "2-4 sentence combined analysis of CFGI and news",
-
     "what_to_watch": [
         "Item to monitor 1",
         "Item to monitor 2"
@@ -201,7 +219,6 @@ IMPORTANT NOTES:
 - Write your full reasoning in <thinking> tags FIRST
 - Then output ONLY valid JSON in <answer> tags
 - All numeric values should be numbers, not strings
-- Confidence is now a nested object with analysis_confidence, signal_strength, and interpretation
 </instructions>
 
 ---
@@ -224,16 +241,17 @@ IMPORTANT NOTES:
 
 4. key_events: Include 3-5 MOST IMPORTANT events only, with URLs
 
-5. summary: Must be 2-4 sentences covering overall sentiment and key catalyst
+5. market_condition must be: BULLISH (optimistic sentiment), BEARISH (pessimistic sentiment), or NEUTRAL (unclear/mixed sentiment)
 
-6. Valid signal values: STRONG_BULLISH, BULLISH, SLIGHTLY_BULLISH, NEUTRAL, SLIGHTLY_BEARISH, BEARISH, STRONG_BEARISH
+6. recommendation_signal must be: BUY (strong bullish + catalysts), SELL (strong bearish + risks), HOLD (moderate signal, no urgency), WAIT (conflicting or stale data)
 
-7. recommendation_signal: Must be BUY, SELL, HOLD, or WAIT (actionable trading recommendation derived from the sentiment signal)
+7. confidence is simplified: {{score: 0.0-1.0, reasoning: "2-3 sentences with CFGI score, news titles/dates, source credibility"}}
 
-8. Confidence is a nested object:
-   - analysis_confidence: 0.70-0.95 (how sure are you in the analysis)
-   - signal_strength: 0.0-1.0 (how strong is the directional signal)
-   - interpretation: Short sentence explaining both
+8. fear_greed_index includes sentiment and confidence for CFGI analysis
+
+9. news_sentiment includes sentiment and confidence for news analysis
+
+10. combined_sentiment is the synthesis of CFGI + news (this should match market_condition)
 </critical_rules>
 """
 
@@ -325,76 +343,58 @@ class SentimentAgent(BaseAgent):
         )
 
         try:
+            # Extract thinking
             thinking_match = re.search(r'<thinking>(.*?)</thinking>', response, re.DOTALL)
             thinking = thinking_match.group(1).strip() if thinking_match else ""
 
+            # Extract JSON from answer tags
             answer_match = re.search(r'<answer>(.*?)</answer>', response, re.DOTALL)
-            if answer_match:
-                answer_json = answer_match.group(1).strip()
-            else:
-                answer_json = response
+            answer_json = answer_match.group(1).strip() if answer_match else response
 
-            answer_json = re.sub(r'```json\s*|\s*```', '', answer_json).strip()
-            answer_json = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', answer_json)
+            # Minimal JSON cleaning
+            answer_json = re.sub(r'^```json\s*|\s*```$', '', answer_json.strip())
+            answer_json = answer_json[answer_json.find('{'):answer_json.rfind('}')+1] if '{' in answer_json else answer_json
 
+            # Parse and add thinking
             sentiment_data = json.loads(answer_json)
-
-
-            # confidence = sentiment_data.get('confidence', {})
-            # if isinstance(confidence, (int, float)):
-            #     confidence = {
-            #         'analysis_confidence': 0.75,
-            #         'signal_strength': float(confidence),
-            #         'interpretation': f'Legacy format: {confidence:.0%} confidence'
-            #     }
-            # elif not isinstance(confidence, dict):
-            #     # Fallback for invalid format
-            #     confidence = {
-            #         'analysis_confidence': 0.5,
-            #         'signal_strength': 0.5,
-            #         'interpretation': 'Default confidence'
-            #     }
-            # sentiment_data['confidence'] = confidence
-
             if thinking:
                 sentiment_data['thinking'] = thinking
             state['sentiment'] = sentiment_data
 
             dm.save_sentiment_analysis(sentiment_data)
 
-        except (json.JSONDecodeError, ValueError) as e:
+        except (json.JSONDecodeError, ValueError, AttributeError) as e:
             print(f"⚠️  Sentiment agent parsing error: {e}")
             print(f"Response: {response[:300]}")
-            # Fallback to neutral sentiment
+
+            # Simplified fallback
             state['sentiment'] = {
-                "signal": "NEUTRAL",
                 "recommendation_signal": "HOLD",
+                "market_condition": "NEUTRAL",
                 "confidence": {
-                    "analysis_confidence": 0.5,
-                    "signal_strength": 0.3,
-                    "interpretation": f"Analysis error: {str(e)[:50]}"
+                    "score": 0.3,
+                    "reasoning": f"Sentiment analysis failed: {str(e)[:100]}. Defaulting to HOLD."
                 },
+                "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 "market_fear_greed": {
                     "score": formatted_data["cfgi_score"],
                     "classification": formatted_data["cfgi_classification"],
-                    "social": None,
-                    "whales": None,
-                    "trends": None,
-                    "interpretation": "Unable to analyze CFGI data"
+                    "sentiment": "NEUTRAL",
+                    "confidence": 0.5,
+                    "interpretation": "Unable to analyze due to error"
                 },
                 "news_sentiment": {
-                    "score": 0.5,
-                    "label": "NEUTRAL",
-                    "catalysts_count": 0,
-                    "risks_count": 0
+                    "sentiment": "NEUTRAL",
+                    "confidence": 0.5
                 },
+                "positive_catalysts": 0,
+                "negative_risks": 0,
                 "key_events": [],
-                "risk_flags": ["parsing_error"],
-                "summary": f"Analysis parsing error: {str(e)[:100]}",
+                "risk_flags": ["Parsing error"],
                 "what_to_watch": [],
                 "invalidation": "N/A",
                 "suggested_timeframe": "N/A",
-                "thinking": ""
+                "thinking": f"Error: {str(e)}"
             }
 
         return state

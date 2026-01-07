@@ -93,25 +93,32 @@ def get_technical_data():
 
 
 
+        import math
+
+        def safe_float(value, default=0.0):
+            if value is None or (isinstance(value, float) and math.isnan(value)):
+                return default
+            return float(value)
+
         return TechnicalDataResponse(
-            currentPrice=ticker.lastPrice,
-            priceChange24h=ticker.priceChangePercent,
-            ema20=indicators.ema20 or 0.0,
-            ema50=indicators.ema50 or 0.0,
-            support=indicators.support1 or 0.0,
-            resistance=indicators.resistance1 or 0.0,
-            volume_current=ticker.volume / 1_000_000_000,  # Convert to billions
-            volume_average=indicators.volume_ma20 / 1_000_000_000 if indicators.volume_ma20 else 0.0,
-            volume_ratio=indicators.volume_ratio or 0.0,
-            rsi=indicators.rsi14 or 0.0,
-            macd_line=indicators.macd_line or 0.0,
-            macd_signal=indicators.macd_signal or 0.0,
+            currentPrice=safe_float(ticker.lastPrice),
+            priceChange24h=safe_float(ticker.priceChangePercent),
+            ema20=safe_float(indicators.ema20),
+            ema50=safe_float(indicators.ema50),
+            support=safe_float(indicators.support1),
+            resistance=safe_float(indicators.resistance1),
+            volume_current=safe_float(ticker.volume) / 1_000_000_000,
+            volume_average=safe_float(indicators.volume_ma20) / 1_000_000_000,
+            volume_ratio=safe_float(indicators.volume_ratio),
+            rsi=safe_float(indicators.rsi14),
+            macd_line=safe_float(indicators.macd_line),
+            macd_signal=safe_float(indicators.macd_signal),
             timestamp=datetime.now().isoformat(),
-            bb_upper=indicators.bb_upper,
-            bb_lower=indicators.bb_lower,
-            atr=indicators.atr,
-            support1=indicators.support1,
-            resistance1=indicators.resistance1
+            bb_upper=safe_float(indicators.bb_upper) if indicators.bb_upper else None,
+            bb_lower=safe_float(indicators.bb_lower) if indicators.bb_lower else None,
+            atr=safe_float(indicators.atr) if indicators.atr else None,
+            support1=safe_float(indicators.support1) if indicators.support1 else None,
+            resistance1=safe_float(indicators.resistance1) if indicators.resistance1 else None
         )
 
     except Exception as e:
