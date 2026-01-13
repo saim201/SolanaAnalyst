@@ -42,7 +42,7 @@ class SentimentAnalyst(Base):
     risk_flags = Column(JSON)
     what_to_watch = Column(JSON)
     invalidation = Column(Text)
-    suggested_timeframe = Column(String(20))
+    suggested_timeframe = Column(String(500))
     thinking = Column(Text)
 
     __table_args__ = (

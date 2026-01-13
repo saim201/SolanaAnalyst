@@ -18,7 +18,6 @@ router = APIRouter(prefix="/api", tags=["analysis"])
 
 def sanitise_text(text):
     if isinstance(text, str):
-        # Remove control characters except newline, carriage return, and tab
         return re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', text)
     return text
 
@@ -104,7 +103,6 @@ def get_latest_analysis():
             "thinking": trader.thinking
         }
 
-        # Use the most recent timestamp
         latest_timestamp = max(technical.created_at, sentiment.created_at, reflection.created_at, trader.created_at)
 
         return TradeAnalysisResponse(

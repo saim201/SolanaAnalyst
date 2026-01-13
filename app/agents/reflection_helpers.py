@@ -24,35 +24,26 @@ def calculate_alignment_score(
     sentiment_signal: str,
     sentiment_confidence: float
 ) -> Tuple[str, float]:
-    # Normalize recommendations to BULLISH/BEARISH/NEUTRAL
     tech_direction = normalize_direction(tech_recommendation)
     sentiment_direction = normalize_direction(sentiment_signal)
 
-    # Calculate base alignment
     if tech_direction == sentiment_direction:
-        # Both agree on direction
         if tech_direction == 'NEUTRAL':
-            # Both neutral - partial alignment
             alignment_status = 'PARTIAL'
             alignment_score = 0.6
         else:
-            # Both bullish or both bearish - strong alignment
             alignment_status = 'ALIGNED'
-            # Score based on confidence similarity
             confidence_diff = abs(tech_confidence - sentiment_confidence)
             alignment_score = 0.95 - (confidence_diff * 0.3)  # Penalty for confidence mismatch
             alignment_score = max(0.85, min(1.0, alignment_score))
 
     elif tech_direction == 'NEUTRAL' or sentiment_direction == 'NEUTRAL':
-        # One is neutral, other is directional - partial
         alignment_status = 'PARTIAL'
         alignment_score = 0.5 + (min(tech_confidence, sentiment_confidence) * 0.2)
         alignment_score = max(0.4, min(0.7, alignment_score))
 
     else:
-        # Opposite directions - conflict
         alignment_status = 'CONFLICTED'
-        # Higher confidence in conflict = lower alignment
         avg_confidence = (tech_confidence + sentiment_confidence) / 2
         alignment_score = 0.3 - (avg_confidence * 0.3)
         alignment_score = max(0.0, min(0.3, alignment_score))

@@ -1,4 +1,4 @@
-# technical.py
+# technical.py - optimised for Sonnet 4.5
 
 import sys
 import os
@@ -230,7 +230,7 @@ TECHNICAL_ANALYSIS_SCHEMA = {
 }
 
 
-SYSTEM_PROMPT = """You are a veteran swing trader analyzing SOLANA (SOL/USDT) with 15 years of experience.
+SYSTEM_PROMPT = """You are a veteran swing trader analysing SOLANA (SOL/USDT) with 15 years of experience.
 
 TRADING PHILOSOPHY:
 - Risk management is paramount
@@ -297,7 +297,7 @@ BTC CORRELATION:
 </market_data>
 
 <instructions>
-Analyze this market data using chain-of-thought reasoning.
+Analyse this market data using chain-of-thought reasoning.
 
 First, write your detailed reasoning inside <thinking> tags.
 Then, output your final analysis as valid JSON inside <answer> tags.

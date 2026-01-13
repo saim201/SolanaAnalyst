@@ -5,30 +5,148 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 import json
 import re
 from datetime import datetime, timezone
+from typing import Dict
+
+from anthropic import Anthropic
+
 from app.agents.base import BaseAgent, AgentState
-from app.agents.llm import llm
 from app.database.data_manager import DataManager
 from app.agents.reflection_helpers import (
     get_nested,
     calculate_alignment_score,
-    calculate_bayesian_confidence,
-    assess_risk_level,
-    normalize_direction
-)
+    assess_risk_level
+    )
+
+
+REFLECTION_ANALYSIS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "recommendation_signal": {
+            "type": "string",
+            "enum": ["BUY", "SELL", "HOLD", "WAIT"],
+            "description": "Final unified recommendation"
+        },
+        "market_condition": {
+            "type": "string",
+            "enum": ["ALIGNED", "CONFLICTED", "MIXED"],
+            "description": "Agent alignment status"
+        },
+        "confidence": {
+            "type": "object",
+            "properties": {
+                "score": {
+                    "type": "number",
+                    "description": "Final confidence 0.15-1.0"
+                },
+                "reasoning": {
+                    "type": "string",
+                    "description": "2-3 sentences: both agents' scores, agreement/conflict, key factor, why this leads to recommendation"
+                }
+            },
+            "required": ["score", "reasoning"],
+            "additionalProperties": False
+        },
+        "thinking": {
+            "type": "string",
+            "description": "Full chain-of-thought reasoning process"
+        },
+        "agent_alignment": {
+            "type": "object",
+            "properties": {
+                "technical_says": {
+                    "type": "string",
+                    "description": "Technical recommendation with confidence"
+                },
+                "sentiment_says": {
+                    "type": "string",
+                    "description": "Sentiment recommendation with confidence"
+                },
+                "alignment_score": {
+                    "type": "number",
+                    "description": "Calculated alignment score 0.0-1.0"
+                },
+                "synthesis": {
+                    "type": "string",
+                    "description": "How Technical + Sentiment combine with specifics"
+                }
+            },
+            "required": ["technical_says", "sentiment_says", "alignment_score", "synthesis"],
+            "additionalProperties": False
+        },
+        "blind_spots": {
+            "type": "object",
+            "properties": {
+                "technical_missed": {
+                    "type": "string",
+                    "description": "What Technical missed that Sentiment revealed"
+                },
+                "sentiment_missed": {
+                    "type": "string",
+                    "description": "What Sentiment missed that Technical revealed"
+                },
+                "critical_insight": {
+                    "type": "string",
+                    "description": "The key insight from combining both analyses"
+                }
+            },
+            "required": ["technical_missed", "sentiment_missed", "critical_insight"],
+            "additionalProperties": False
+        },
+        "primary_risk": {
+            "type": "string",
+            "description": "The main risk that could derail this trade"
+        },
+        "monitoring": {
+            "type": "object",
+            "properties": {
+                "watch_next_24h": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Critical factors to monitor in next 24 hours"
+                },
+                "invalidation_triggers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Specific conditions that would invalidate the thesis"
+                }
+            },
+            "required": ["watch_next_24h", "invalidation_triggers"],
+            "additionalProperties": False
+        },
+        "final_reasoning": {
+            "type": "string",
+            "description": "3-4 sentences: overall picture, why this recommendation, what would change your mind"
+        }
+    },
+    "required": [
+        "recommendation_signal",
+        "market_condition",
+        "confidence",
+        "thinking",
+        "agent_alignment",
+        "blind_spots",
+        "primary_risk",
+        "monitoring",
+        "final_reasoning"
+    ],
+    "additionalProperties": False
+}
+
+
 
 
 SYSTEM_PROMPT = """You are a SENIOR TRADING STRATEGIST with 20 years experience in crypto markets, specialising in synthesising multi-agent analysis for Solana (SOL) swing trading.
 
 YOUR ROLE:
-- Review Technical and Sentiment analyst analyses
+- Review Technical and Sentiment analyses
 - Identify blind spots (what each analyst missed)
 - Assess agreement/conflict between analysts
 - Calculate risk-adjusted confidence
-- Provide unified actionable recommendation_signal
+- Provide unified actionable recommendation
 
 YOUR EXPERTISE:
-- Finding what analysts overlook (blind spot detection)
-- Bayesian confidence fusion (combining probabilistic signals)
+- Blind spot detection (finding what analysts overlook)
+- Confidence fusion (combining probabilistic signals)
 - Risk assessment (identifying primary threats)
 - Synthesis (turning conflicting signals into clear decisions)
 
@@ -36,15 +154,11 @@ YOUR STYLE:
 - Honest: If confidence is low, say so
 - Risk-focused: Always identify the primary risk
 - Decisive: Provide clear recommendations
-- Transparent: Show your reasoning steps
+- Transparent: Show your reasoning
 
-YOUR OUTPUT REQUIREMENTS:
-- market_condition: Agent alignment status (ALIGNED/CONFLICTED/MIXED)
-- confidence.reasoning: Tell the story of how Technical + Sentiment combine. Cite their specific scores, disagreements, and why this leads to your recommendation. Paint a picture.
-- synthesis: Don't just say "they agree/disagree" - explain WHAT they agree/disagree on with specifics
-- blind_spots: Not just lists - explain WHY each blind spot matters and HOW it changes the analysis
-- Connect everything: risk → confidence → recommendation in a natural flow
+CRITICAL: Your confidence.reasoning must tell the story of how Technical + Sentiment combine. Cite specific scores, disagreements, and key data points. Paint a clear picture.
 """
+
 
 
 REFLECTION_PROMPT = """
@@ -53,243 +167,149 @@ REFLECTION_PROMPT = """
 **Confidence:** {tech_confidence:.0%}
 **Market Condition:** {tech_market_condition}
 
-**Summary:** {tech_summary}
+**Confidence Reasoning:** {tech_confidence_reasoning}
 
 **Trade Setup:**
-- Entry: ${tech_entry}
-- Stop Loss: ${tech_stop}
-- Take Profit: ${tech_target}
-- Risk/Reward: {tech_risk_reward}
+- Entry: ${tech_entry:.2f}
+- Stop Loss: ${tech_stop:.2f}
+- Take Profit: ${tech_target:.2f}
+- Risk/Reward: {tech_risk_reward:.2f}
 - Timeframe: {tech_timeframe}
 
 **Volume Analysis:**
-- Volume Ratio: {volume_ratio:.2f}x average
-- Volume Quality: {volume_quality}
+- Ratio: {volume_ratio:.2f}x average
+- Quality: {volume_quality}
 
-**Analysis:**
-{tech_analysis_formatted}
+**Trend:** {tech_trend_direction} ({tech_trend_strength})
+{tech_trend_detail}
+
+**Momentum:** {tech_momentum_direction} ({tech_momentum_strength})
+{tech_momentum_detail}
+
+**Volume Detail:**
+{tech_volume_detail}
 
 **Watch List:**
-{tech_watch_list_formatted}
+Bullish Signals: {tech_bullish_signals}
+Bearish Signals: {tech_bearish_signals}
 
-**Invalidation:**
-{tech_invalidation_formatted}
+**Invalidation:** {tech_invalidation}
 
-**Confidence Reasoning:**
-{tech_confidence_reasoning_formatted}
 </technical_analysis>
 
 <sentiment_analysis>
 **Signal:** {sentiment_signal}
 **Confidence:** {sentiment_confidence:.0%}
 
+**Confidence Reasoning:** {sentiment_confidence_reasoning}
+
 **CFGI Fear & Greed:**
 - Score: {cfgi_score}/100 ({cfgi_classification})
+- Social: {cfgi_social} | Whales: {cfgi_whales} | Trends: {cfgi_trends}
 - Interpretation: {cfgi_interpretation}
 
-**News Sentiment:**
-- Score: {news_sentiment_score:.0%}
-- Label: {news_sentiment_label}
+**News Sentiment:** {news_sentiment_label} ({news_sentiment_score:.0%})
 
 **Key Events:**
-{sentiment_key_events_formatted}
+{sentiment_key_events}
 
-**Risk Flags:**
-{sentiment_risk_flags_formatted}
+**Risk Flags:** {sentiment_risk_flags}
 
-**Summary:** {sentiment_summary}
-
-**What to Watch:**
-{sentiment_what_to_watch_formatted}
+**What to Watch:** {sentiment_what_to_watch}
 
 **Invalidation:** {sentiment_invalidation}
+
 </sentiment_analysis>
 
 ---
 
 <instructions>
-## YOUR TASK
+Analyse using **FOCUSED 4-PHASE FRAMEWORK**.
 
-Analyse the above data using **FOCUSED 4-PHASE FRAMEWORK**.
+Write your reasoning inside <thinking> tags, then output JSON inside <answer> tags.
 
-Your job is QUALITATIVE ANALYSIS ONLY. The code will handle all calculations (alignment scores, risk levels, confidence scores).
+## PHASE 1: AGENT ALIGNMENT ANALYSIS
+Compare Technical ({tech_recommendation}, {tech_confidence:.0%}) vs Sentiment ({sentiment_signal}, {sentiment_confidence:.0%}):
 
-### CONFIDENCE GUIDELINES
+Write 3-4 sentences:
+- Do they AGREE on direction?
+- What SPECIFIC factors drive each? (cite prices, volume, news, dates)
+- Where's the KEY DISAGREEMENT?
+- What's the alignment telling us?
 
-<confidence_guidelines>
-## Confidence Score (0.15-1.0)
-After synthesising Technical + Sentiment, how confident are you in the final recommendation?
+## PHASE 2: TECHNICAL BLIND SPOTS
+What did Technical MISS that Sentiment revealed?
 
+For EACH blind spot (2-3 sentences):
+- WHAT was missed? (specific event, risk, context)
+- WHY does it matter?
+- HOW should this affect the trade?
+
+## PHASE 3: SENTIMENT BLIND SPOTS
+What did Sentiment MISS that Technical revealed?
+
+For EACH blind spot (2-3 sentences):
+- WHAT was missed? (volume, chart structure, momentum)
+- WHY does it matter?
+- HOW should this affect the trade?
+
+## PHASE 4: SYNTHESIS & DECISION
+Combine everything:
+
+Write 3-4 sentences:
+- What's the OVERALL PICTURE?
+- What's the PRIMARY RISK?
+- Given alignment + blind spots + risks, what's the RIGHT MOVE?
+- What SPECIFIC CONDITIONS would change your mind?
+
+## CONFIDENCE SCALE
 - 0.80-1.00: Very high - both agents strongly aligned, clear edge
 - 0.65-0.79: High - good alignment, manageable risks
 - 0.50-0.64: Moderate - some conflicts but edge exists
 - 0.35-0.49: Low - significant conflicts or unclear edge
 - 0.15-0.34: Very low - major conflicts, wait for clarity
 
-## Confidence Reasoning (CRITICAL)
-Write 2-3 sentences that tell the synthesis story:
+## CONFIDENCE REASONING (CRITICAL)
+Must include:
+- Both agents' recommendations + scores
+- Specific point of agreement/conflict
+- Key data that tips the decision
+- WHY this leads to your recommendation
 
-**Must include**:
-- Both agents' recommendations + scores (e.g., "Technical BUY 0.72, Sentiment BULLISH 0.65")
-- Specific point of agreement or conflict (volume, timing, risk)
-- Key data that tips the decision (volume ratio, news date, price level)
-- WHY this leads to your recommendation + confidence
-
-**Natural storytelling** - connect Technical + Sentiment into coherent picture
- **No generic statements** like "agents partially align"
- **No listing without context**
-
-**GOOD Examples**:
-
-"Technical screams BUY (0.72) on clean breakout with 3.2:1 R/R, and Sentiment confirms with Morgan Stanley ETF catalyst (0.65), creating 0.85 alignment. However, volume is dead at 0.56x for 43 days - institutions haven't shown up yet. Despite strong alignment, dead volume drops confidence to 58% for WAIT: need volume >1.5x to prove institutions are buying the story before risking capital."
-
-"Strong conflict: Technical says WAIT (0.32) citing dead volume and overbought RSI, but Sentiment is bullish (0.68) on fresh Ondo Finance news. Alignment score 0.45 shows deep disagreement. Technical's volume data wins here - news can't move price without institutional buying pressure. Confidence 0.41 in WAIT: let volume confirm before trusting news-driven rallies."
-
-"Perfect alignment (0.92): Technical BUY (0.78) and Sentiment BULLISH (0.75) both cite the same factors - volume surge to 1.8x, Morgan Stanley ETF, RSI healthy at 66. No blind spots found, primary risk is normal (BTC correlation). High confidence 0.82 in BUY with 3-5 day timeframe and tight stop at $142."
-
-**BAD Examples** :
-
-"Moderate confidence due to partial agent alignment"
-→ No specifics, doesn't explain WHY moderate
-
-"Technical and Sentiment show some agreement but also concerns"
-→ Vague, no data, no story
-
-"Confidence is 0.57 based on synthesis of both analyses"
-→ Circular, doesn't explain reasoning
-</confidence_guidelines>
-
-### OUTPUT FORMAT
-
-<thinking>
-
-**PHASE 1: AGENT ALIGNMENT ANALYSIS**
-
-Compare Technical ({tech_recommendation}, {tech_confidence:.0%}) vs Sentiment ({sentiment_signal}, {sentiment_confidence:.0%}):
-
-Write 3-4 sentences explaining:
-- Do they AGREE on direction (both bullish/bearish)?
-- What SPECIFIC factors drive each recommendation? (cite prices, volume, news, dates)
-- Where's the KEY DISAGREEMENT? (timing? risk tolerance? data interpretation?)
-- What's the alignment_score telling us? (>0.80=strong, 0.60-0.80=moderate, <0.60=weak)
-
-Example: "Technical sees BUY setup (0.72) on breakout above $145 with 3.2:1 R/R. Sentiment also bullish (0.65) citing Morgan Stanley ETF news (Jan 6). Both agree on direction (alignment 0.85) but disagree on timing: Technical demands volume >1.5x first, Sentiment thinks news is catalyst enough. The gap is whether to trust the chart pattern or the news headline."
-
-
-**PHASE 2: TECHNICAL BLIND SPOTS**
-
-What did Technical analysis MISS that Sentiment revealed?
-
-Write 2-3 sentences for EACH blind spot:
-- WHAT was missed? (specific news event, risk flag, market context)
-- WHY does it matter? (how does it change Technical's thesis?)
-- HOW should this affect the trade decision?
-
-Example: "Technical focused purely on the chart breakout but completely missed the 2-hour Solana network outage on Dec 30 that Sentiment flagged from news sources. This reliability concern isn't visible in price action yet, but if another outage hits, it would trigger cascading stop-losses regardless of how bullish the chart looks. This hidden risk justifies reducing position size even with a good technical setup."
-
-
-**PHASE 3: SENTIMENT BLIND SPOTS**
-
-What did Sentiment analysis MISS that Technical revealed?
-
-Write 2-3 sentences for EACH blind spot:
-- WHAT was missed? (volume data, chart structure, momentum signals)
-- WHY does it matter? (how does it change Sentiment's thesis?)
-- HOW should this affect the trade decision?
-
-Example: "Sentiment is excited about Morgan Stanley ETF filing (fresh news, reputable source) but didn't see that volume has been dead at 0.56x average for 43 straight days - institutions AREN'T buying yet. News creates POTENTIAL for a move, but Technical's volume data shows institutional money hasn't arrived. This timing gap means news-driven rallies could fail at resistance without volume follow-through."
-
-
-**PHASE 4: SYNTHESIS & DECISION**
-
-Combine everything into your recommendation:
-
-Write 3-4 sentences covering:
-- What's the OVERALL PICTURE? (both agents bullish? conflicted? one neutral?)
-- What's the PRIMARY RISK that could derail this trade?
-- Given alignment + blind spots + risks, what's the RIGHT MOVE? (BUY/SELL/HOLD/WAIT)
-- What SPECIFIC CONDITIONS would change your mind?
-
-Example: "Both agents lean bullish (0.85 alignment) on genuine institutional catalyst, but timing is the issue. Technical correctly demands volume proof (not seeing it at 0.56x for 43 days) before trusting the rally. Sentiment is early on the news but blind to volume reality. Smart move is WAIT with 57% confidence - if institutions start buying (volume >1.5x) within 48 hours of Morgan Stanley news, this becomes strong BUY. Without volume follow-through, it's retail hype that will dump at resistance."
-
-</thinking>
-
-<answer>
-{{
-  "recommendation_signal": "BUY|SELL|HOLD|WAIT",
-
-  "market_condition": "ALIGNED|CONFLICTED|MIXED",
-
-  "confidence": {{
-    "score": 0.57,
-    "reasoning": "Technical says [X with score], Sentiment says [Y with score]. They [agree/conflict] on [specific aspect]. Combined with [key factor like volume/risk], this gives us [recommendation] with [score]% confidence because [specific reason]."
-  }},
-
-  "timestamp": "2026-01-06T12:34:56Z",
-
-  "agent_alignment": {{
-    "technical_says": "BUY (0.72)",
-    "sentiment_says": "BULLISH (0.65)",
-    "alignment_score": 0.85,
-    "synthesis": "Both agents lean bullish - Technical sees breakout setup above $145 (3.2:1 R/R), Sentiment confirms with Morgan Stanley ETF catalyst (Jan 6). Key gap: Technical needs volume >1.5x to confirm but Sentiment thinks fresh news is enough. Without institutional volume showing up in the data, even strong catalysts can fail at resistance."
-  }},
-
-  "blind_spots": {{
-    "technical_missed": "Technical focused on chart breakout but didn't weight the 2-hour network outage (Dec 30) that Sentiment flagged. Even with bullish momentum, reliability issues can trigger cascading stop-losses and invalidate the setup overnight.",
-
-    "sentiment_missed": "Sentiment is excited about Morgan Stanley news but missed that volume is dead at 0.56x average for 43 days - no institutional buying is showing up yet. News creates potential, but Technical's volume data shows institutions haven't arrived. This timing gap is critical.",
-
-    "critical_insight": "The real trade decision hinges on volume: if institutions start buying (volume >1.5x) within 48 hours of the Morgan Stanley news, this becomes a strong BUY. Without volume follow-through, it's just retail hype that will fade at resistance. WAIT and watch volume."
-  }},
-
-  "primary_risk": "Dead volume (0.56x for 43 days) means bullish setup lacks institutional conviction. If price rallies on retail enthusiasm alone (CFGI Social 96) without institutions participating, it will dump at $144.93 resistance. This is why WAIT makes sense - we need volume proof before risking capital on news-driven hype.",
-
-  "monitoring": {{
-    "watch_next_24h": [
-      "Volume spike above 1.5x average - THE signal to enter",
-      "Price reaction at $144.93 resistance with volume analysis",
-      "Any Morgan Stanley ETF filing updates or SEC commentary"
-    ],
-    "invalidation_triggers": [
-      "Volume stays below 0.8x for 48 more hours - news failed to attract institutions",
-      "Break below $135 support invalidates Technical's bullish structure"
-    ]
-  }},
-
-  "final_reasoning": "Technical + Sentiment both lean bullish (alignment_score 0.85), but WAIT recommendation comes from their timing gap: Technical correctly demands volume proof (not seeing it at 0.56x), while Sentiment is early on the news catalyst. Smart play is wait for volume to confirm institutions are actually buying the story before committing capital."
-}}
-</answer>
-
+Output valid JSON matching the schema exactly.
 </instructions>
-
-<critical_rules>
-1. Focus on QUALITATIVE insights - let code handle math
-2. Be SPECIFIC in blind spots - name actual events, price levels, metrics
-3. Make synthesis ACTIONABLE - traders need clear guidance
-4. Keep reasoning CONCISE - 2-3 sentences max
-5. NEVER output invalid JSON - check all brackets, commas, quotes
-6. technical_view and sentiment_view will be auto-formatted
-</critical_rules>
 """
+
 
 
 class ReflectionAgent(BaseAgent):
     def __init__(self):
         super().__init__(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             temperature=0.3
         )
+        self.client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
     def execute(self, state: AgentState) -> AgentState:
-        # Extract technical data
+        try:
+            return self._execute_internal(state)
+        except Exception as e:
+            import traceback
+            print(f"\n REFLECTION AGENT ERROR:")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error message: {str(e)}")
+            print(f"\nFull traceback:")
+            print(traceback.format_exc())
+            raise
+
+    def _execute_internal(self, state: AgentState) -> AgentState:
+
         tech = state.get('technical', {})
         tech_recommendation = tech.get('recommendation_signal', 'HOLD')
         tech_confidence_obj = tech.get('confidence', {})
         tech_confidence = float(tech_confidence_obj.get('score', 0.5)) if isinstance(tech_confidence_obj, dict) else 0.5
         tech_market_condition = tech.get('market_condition', 'QUIET')
-        tech_summary = tech_confidence_obj.get('reasoning', 'No summary')
-
-        # Trade setup
+        tech_confidence_reasoning = tech_confidence_obj.get('reasoning', 'No reasoning provided') if isinstance(tech_confidence_obj, dict) else 'No reasoning provided'
         tech_entry = get_nested(tech, 'trade_setup.entry', 0.0)
         tech_stop = get_nested(tech, 'trade_setup.stop_loss', 0.0)
         tech_target = get_nested(tech, 'trade_setup.take_profit', 0.0)
@@ -297,40 +317,46 @@ class ReflectionAgent(BaseAgent):
         tech_timeframe = get_nested(tech, 'trade_setup.timeframe', 'N/A')
         volume_ratio = get_nested(tech, 'analysis.volume.ratio', 1.0)
         volume_quality = get_nested(tech, 'analysis.volume.quality', 'UNKNOWN')
+        tech_volume_detail = get_nested(tech, 'analysis.volume.detail', 'No volume detail')
+        tech_trend_direction = get_nested(tech, 'analysis.trend.direction', 'NEUTRAL')
+        tech_trend_strength = get_nested(tech, 'analysis.trend.strength', 'WEAK')
+        tech_trend_detail = get_nested(tech, 'analysis.trend.detail', 'No trend detail')
+        tech_momentum_direction = get_nested(tech, 'analysis.momentum.direction', 'NEUTRAL')
+        tech_momentum_strength = get_nested(tech, 'analysis.momentum.strength', 'WEAK')
+        tech_momentum_detail = get_nested(tech, 'analysis.momentum.detail', 'No momentum detail')
+        tech_bullish_signals = ', '.join(tech.get('watch_list', {}).get('bullish_signals', [])) or 'None'
+        tech_bearish_signals = ', '.join(tech.get('watch_list', {}).get('bearish_signals', [])) or 'None'
+        tech_invalidation = ', '.join(tech.get('invalidation', [])) or 'None'
 
-        # Extract sentiment data
         sentiment = state.get('sentiment', {})
-        sentiment_signal = sentiment.get('recommendation_signal', 'NEUTRAL')
+        sentiment_signal = sentiment.get('recommendation_signal', 'HOLD')
         sentiment_confidence_obj = sentiment.get('confidence', {})
         sentiment_confidence = float(sentiment_confidence_obj.get('score', 0.5)) if isinstance(sentiment_confidence_obj, dict) else 0.5
-        sentiment_summary = sentiment_confidence_obj.get('reasoning', 'No summary')
+        sentiment_confidence_reasoning = sentiment_confidence_obj.get('reasoning', 'No reasoning provided') if isinstance(sentiment_confidence_obj, dict) else 'No reasoning provided'
 
-        # CFGI data
         cfgi_score = get_nested(sentiment, 'market_fear_greed.score', 50)
         cfgi_classification = get_nested(sentiment, 'market_fear_greed.classification', 'Neutral')
+        cfgi_social = get_nested(sentiment, 'market_fear_greed.social', 'N/A')
+        cfgi_whales = get_nested(sentiment, 'market_fear_greed.whales', 'N/A')
+        cfgi_trends = get_nested(sentiment, 'market_fear_greed.trends', 'N/A')
         cfgi_interpretation = get_nested(sentiment, 'market_fear_greed.interpretation', 'No interpretation')
 
-        # News sentiment
         news_sentiment_score = get_nested(sentiment, 'news_sentiment.confidence', 0.5)
         news_sentiment_label = get_nested(sentiment, 'news_sentiment.sentiment', 'NEUTRAL')
 
-        # Format lists for prompt (simple formatting)
-        tech_analysis_formatted = json.dumps(tech.get('analysis', {}), indent=2) if tech.get('analysis') else "No analysis"
-        tech_watch_list_formatted = json.dumps(tech.get('watch_list', {}), indent=2) if tech.get('watch_list') else "No watch list"
-        tech_invalidation_formatted = '\n'.join([f"  - {item}" for item in tech.get('invalidation', [])]) if tech.get('invalidation') else "None"
-        tech_confidence_reasoning_formatted = json.dumps(tech.get('confidence_reasoning', {}), indent=2) if tech.get('confidence_reasoning') else "No reasoning"
-
         key_events = sentiment.get('key_events', [])
-        sentiment_key_events_formatted = '\n'.join([
-            f"  - {e.get('title', 'Unknown')} ({e.get('type', 'Unknown')}) - {e.get('impact', 'Unknown')}"
-            for e in key_events[:5]
-        ]) if key_events else "No key events"
+        if key_events:
+            sentiment_key_events = '\n'.join([
+                f"  - {e.get('title', 'Unknown')} ({e.get('type', 'Unknown')}, {e.get('impact', 'Unknown')}, {e.get('published_at', 'Unknown date')})"
+                for e in key_events[:5]
+            ])
+        else:
+            sentiment_key_events = "No key events"
 
-        sentiment_risk_flags_formatted = '\n'.join([f"  - {flag}" for flag in sentiment.get('risk_flags', [])]) if sentiment.get('risk_flags') else "No risk flags"
-        sentiment_what_to_watch_formatted = '\n'.join([f"  - {item}" for item in sentiment.get('what_to_watch', [])]) if sentiment.get('what_to_watch') else "Nothing"
+        sentiment_risk_flags = ', '.join(sentiment.get('risk_flags', [])) or 'No risk flags'
+        sentiment_what_to_watch = ', '.join(sentiment.get('what_to_watch', [])) or 'Nothing specific'
         sentiment_invalidation = sentiment.get('invalidation', 'Not specified')
 
-        # Get data needed for calculations (only fetch once)
         from app.agents.db_fetcher import DataQuery
         with DataQuery() as dq:
             indicators_data = dq.get_indicators_data()
@@ -352,7 +378,7 @@ class ReflectionAgent(BaseAgent):
             tech_recommendation=tech_recommendation,
             tech_confidence=tech_confidence,
             tech_market_condition=tech_market_condition,
-            tech_summary=tech_summary,
+            tech_confidence_reasoning=tech_confidence_reasoning,
             tech_entry=tech_entry,
             tech_stop=tech_stop,
             tech_target=tech_target,
@@ -360,180 +386,102 @@ class ReflectionAgent(BaseAgent):
             tech_timeframe=tech_timeframe,
             volume_ratio=volume_ratio,
             volume_quality=volume_quality,
-            tech_analysis_formatted=tech_analysis_formatted,
-            tech_watch_list_formatted=tech_watch_list_formatted,
-            tech_invalidation_formatted=tech_invalidation_formatted,
-            tech_confidence_reasoning_formatted=tech_confidence_reasoning_formatted,
-
+            tech_volume_detail=tech_volume_detail,
+            tech_trend_direction=tech_trend_direction,
+            tech_trend_strength=tech_trend_strength,
+            tech_trend_detail=tech_trend_detail,
+            tech_momentum_direction=tech_momentum_direction,
+            tech_momentum_strength=tech_momentum_strength,
+            tech_momentum_detail=tech_momentum_detail,
+            tech_bullish_signals=tech_bullish_signals,
+            tech_bearish_signals=tech_bearish_signals,
+            tech_invalidation=tech_invalidation,
             sentiment_signal=sentiment_signal,
             sentiment_confidence=sentiment_confidence,
+            sentiment_confidence_reasoning=sentiment_confidence_reasoning,
             cfgi_score=cfgi_score,
             cfgi_classification=cfgi_classification,
+            cfgi_social=cfgi_social,
+            cfgi_whales=cfgi_whales,
+            cfgi_trends=cfgi_trends,
             cfgi_interpretation=cfgi_interpretation,
             news_sentiment_score=news_sentiment_score,
             news_sentiment_label=news_sentiment_label,
-            sentiment_key_events_formatted=sentiment_key_events_formatted,
-            sentiment_risk_flags_formatted=sentiment_risk_flags_formatted,
-            sentiment_summary=sentiment_summary,
-            sentiment_what_to_watch_formatted=sentiment_what_to_watch_formatted,
-            sentiment_invalidation=sentiment_invalidation,
-            timestamp=timestamp
+            sentiment_key_events=sentiment_key_events,
+            sentiment_risk_flags=sentiment_risk_flags,
+            sentiment_what_to_watch=sentiment_what_to_watch,
+            sentiment_invalidation=sentiment_invalidation
         )
 
-        response = llm(
-            full_prompt,
+        response = self.client.messages.create(
             model=self.model,
+            max_tokens=3000,
             temperature=self.temperature,
-            max_tokens=3000
+            messages=[{"role": "user", "content": full_prompt}],
+            extra_headers={"anthropic-beta": "structured-outputs-2025-11-13"},
+            extra_body={
+                "output_format": {
+                    "type": "json_schema",
+                    "schema": REFLECTION_ANALYSIS_SCHEMA
+                }
+            }
         )
 
-        try:
-            thinking_match = re.search(r'<thinking>(.*?)</thinking>', response, re.DOTALL)
-            thinking_text = thinking_match.group(1).strip() if thinking_match else ""
+        response_text = response.content[0].text
+        
+        answer_match = re.search(r'<answer>(.*?)</answer>', response_text, re.DOTALL)
+        if answer_match:
+            json_text = answer_match.group(1).strip()
+        else:
+            json_text = response_text
+        
+        json_text = re.sub(r'^```json\s*|\s*```$', '', json_text.strip())
+        
+        reflection_data = json.loads(json_text)
 
-            answer_match = re.search(r'<answer>(.*?)</answer>', response, re.DOTALL)
-            json_str = answer_match.group(1).strip() if answer_match else re.search(r'\{[\s\S]*\}', response).group(0)
+        print(" Calculating alignment score...")
+        alignment_status, alignment_score = calculate_alignment_score(
+            tech_recommendation=tech_recommendation,
+            tech_confidence=tech_confidence,
+            sentiment_signal=sentiment_signal,
+            sentiment_confidence=sentiment_confidence
+        )
 
-            json_str = re.sub(r'^```json\s*|\s*```$', '', json_str.strip())
-            json_str = json_str[json_str.find('{'):json_str.rfind('}')+1]
+        print(" Assessing risk level...")
+        risk_level, secondary_risks = assess_risk_level(
+            volume_ratio=volume_ratio,
+            alignment_score=alignment_score,
+            tech_analysis=tech,
+            sentiment_data=sentiment,
+            btc_correlation=btc_correlation,
+            btc_trend=btc_trend,
+            price_position_14d=price_position_14d,
+            rsi_divergence_type=rsi_divergence_type,
+            rsi_divergence_strength=rsi_divergence_strength
+        )
 
-            reflection_data = json.loads(json_str)
 
-            # POST-PROCESS: Calculate objective scores
-            print("  Calculating alignment score...")
-            alignment_status, alignment_score = calculate_alignment_score(
-                tech_recommendation=tech_recommendation,
-                tech_confidence=tech_confidence,
-                sentiment_signal=sentiment_signal,
-                sentiment_confidence=sentiment_confidence
-            )
+        if 'agent_alignment' not in reflection_data:
+            reflection_data['agent_alignment'] = {}
 
-            print("  Assessing risk level...")
-            risk_level, secondary_risks = assess_risk_level(
-                volume_ratio=volume_ratio,
-                alignment_score=alignment_score,
-                tech_analysis=tech,
-                sentiment_data=sentiment,
-                btc_correlation=btc_correlation,
-                btc_trend=btc_trend,
-                price_position_14d=price_position_14d,
-                rsi_divergence_type=rsi_divergence_type,
-                rsi_divergence_strength=rsi_divergence_strength
-            )
+        reflection_data['agent_alignment']['alignment_score'] = alignment_score
+        reflection_data['agent_alignment']['technical_says'] = f"{tech_recommendation} ({tech_confidence:.0%})"
+        reflection_data['agent_alignment']['sentiment_says'] = f"{sentiment_signal} ({sentiment_confidence:.0%})"
 
-            print("  Calculating Bayesian confidence (reference metric)...")
-            bayesian_confidence = calculate_bayesian_confidence(
-                tech_confidence=tech_confidence,
-                sentiment_confidence=sentiment_confidence,
-                alignment_score=alignment_score,
-                risk_level=risk_level,
-                volume_ratio=volume_ratio,
-                btc_correlation=btc_correlation,
-                btc_trend=btc_trend,
-                cfgi_score=cfgi_score_value,
-                price_position_14d=price_position_14d
-            )
+        reflection_data['calculated_metrics'] = {
+            'risk_level': risk_level,
+            'secondary_risks': secondary_risks
+        }
 
-            # Inject calculated metrics (trust LLM for recommendation and confidence)
-            if 'agent_alignment' not in reflection_data:
-                reflection_data['agent_alignment'] = {}
+       
+        reflection_data['timestamp'] = timestamp
 
-            reflection_data['agent_alignment']['alignment_score'] = alignment_score
-            reflection_data['agent_alignment']['technical_says'] = f"{tech_recommendation} ({tech_confidence:.0%})"
-            reflection_data['agent_alignment']['sentiment_says'] = f"{sentiment_signal} ({sentiment_confidence:.0%})"
+        state['reflection'] = reflection_data
 
-            # Store Bayesian confidence as reference (for validation and fallback)
-            reflection_data['calculated_metrics'] = {
-                'bayesian_confidence': bayesian_confidence['final_confidence'],
-                'risk_level': risk_level,
-                'confidence_deviation': abs(reflection_data.get('confidence', {}).get('score', 0.5) - bayesian_confidence['final_confidence'])
-            }
+        with DataManager() as dm:
+            dm.save_reflection_analysis(data=reflection_data)
 
-            # Log if LLM and Bayesian confidence differ significantly
-            llm_conf = reflection_data.get('confidence', {}).get('score', 0.5)
-            if abs(llm_conf - bayesian_confidence['final_confidence']) > 0.15:
-                print(f"  ⚠️  Confidence deviation: LLM={llm_conf:.0%} vs Bayesian={bayesian_confidence['final_confidence']:.0%}")
-
-            # Add thinking and timestamp
-            if thinking_text:
-                reflection_data['thinking'] = thinking_text
-            reflection_data['timestamp'] = timestamp
-
-            # Save to state and database
-            state['reflection'] = reflection_data
-
-            with DataManager() as dm:
-                dm.save_reflection_analysis(data=reflection_data)
-
-            print("✅ Reflection agent completed successfully")
-
-        except (json.JSONDecodeError, ValueError, AttributeError) as e:
-            print(f"⚠️  Reflection agent parsing error: {e}")
-            print(f"Response preview: {response[:500]}")
-
-            # Calculate metrics for fallback
-            alignment_status, alignment_score = calculate_alignment_score(
-                tech_recommendation, tech_confidence,
-                sentiment_signal, sentiment_confidence
-            )
-
-            risk_level, secondary_risks = assess_risk_level(
-                volume_ratio=volume_ratio,
-                alignment_score=alignment_score,
-                tech_analysis=tech,
-                sentiment_data=sentiment,
-                btc_correlation=btc_correlation,
-                btc_trend=btc_trend,
-                price_position_14d=price_position_14d,
-                rsi_divergence_type=rsi_divergence_type,
-                rsi_divergence_strength=rsi_divergence_strength
-            )
-
-            bayesian_conf = calculate_bayesian_confidence(
-                tech_confidence=tech_confidence,
-                sentiment_confidence=sentiment_confidence,
-                alignment_score=alignment_score,
-                risk_level=risk_level,
-                volume_ratio=volume_ratio,
-                btc_correlation=btc_correlation,
-                btc_trend=btc_trend,
-                cfgi_score=cfgi_score_value,
-                price_position_14d=price_position_14d
-            )
-
-            # Derive market condition
-            market_condition = 'ALIGNED' if alignment_score >= 0.80 else 'CONFLICTED' if alignment_score < 0.60 else 'MIXED'
-
-            # Use Bayesian confidence in fallback
-            state['reflection'] = {
-                'recommendation_signal': tech_recommendation,
-                'market_condition': market_condition,
-                'confidence': {
-                    'score': bayesian_conf['final_confidence'],
-                    'reasoning': f'Reflection synthesis failed: {str(e)[:100]}. Using Technical ({tech_recommendation}, {tech_confidence:.0%}) with Bayesian confidence.'
-                },
-                'timestamp': timestamp,
-                'agent_alignment': {
-                    'alignment_score': alignment_score,
-                    'technical_says': f"{tech_recommendation} ({tech_confidence:.0%})",
-                    'sentiment_says': f"{sentiment_signal} ({sentiment_confidence:.0%})",
-                    'synthesis': f'Error prevented synthesis. Alignment {alignment_score:.0%}.'
-                },
-                'blind_spots': {
-                    'technical_missed': 'Unable to analyze due to error',
-                    'sentiment_missed': 'Unable to analyze due to error',
-                    'critical_insight': 'Re-run reflection analysis'
-                },
-                'primary_risk': f'Volume: {volume_ratio:.2f}x, Risk level: {risk_level}',
-                'calculated_metrics': {
-                    'bayesian_confidence': bayesian_conf['final_confidence'],
-                    'risk_level': risk_level
-                },
-                'thinking': f'Error: {str(e)}'
-            }
-
-            with DataManager() as dm:
-                dm.save_reflection_analysis(data=state['reflection'])
+        print("✅ Reflection agent completed successfully")
 
         return state
 
@@ -542,143 +490,124 @@ if __name__ == "__main__":
     test_state = AgentState()
 
     test_state['technical'] = {
-        'timestamp': '2026-01-02T13:58:04.992663Z',
+        'timestamp': '2026-01-13T13:58:04Z',
         'recommendation_signal': 'WAIT',
         'confidence': {
-            'analysis_confidence': 0.85,
-            'setup_quality': 0.25,
-            'interpretation': 'High confidence in WAIT - dead volume makes setup poor'
+            'score': 0.57,
+            'reasoning': 'Moderate confidence in WAIT - dead volume (0.65x for 41 days) invalidates bullish setup despite MACD divergence. Need volume >1.0x to confirm any move.'
         },
         'market_condition': 'QUIET',
-        'summary': 'SOL is building a potential base around $126-128 with bullish momentum signals emerging, but critically low volume (0.65x average) makes any move unreliable. Combined with bearish BTC correlation, this is a clear WAIT situation until volume returns to confirm direction.',
-        'thinking': ["Market story: SOL in consolidation/base-building phase, grinding higher from $122 lows but still below key EMA50 resistance", "Volume assessment: DEAD volume at 0.65x average invalidates all other signals - no conviction behind recent gains", "Momentum read: MACD showing bullish divergence and Bollinger Squeeze active, but compromised by lack of volume", "BTC context: Strong 0.91 correlation with bearish BTC (-4.3% 30d) creates significant headwind for any rally", "Setup evaluation: No valid trade setup due to dead volume and narrow range - risk/reward unfavorable", "Key conclusion: Wait for volume confirmation before taking any directional position"],
-
+        'thinking': 'Market consolidating above $126 lows but below EMA50 resistance. MACD showing bullish divergence and Bollinger Squeeze building, but dead volume (0.65x) undermines reliability. Strong BTC correlation (0.91) with bearish BTC creates headwind. No valid setup due to volume.',
         'analysis': {
-            "trend": 
-            {
-                "direction": "NEUTRAL", 
-                "strength": "WEAK", 
-                "detail": "Consolidating above recent lows but below key resistance, lacking conviction to establish clear direction."
-            }, 
-            "momentum": 
-            {
-                "direction": "BULLISH", 
-                "strength": "WEAK", 
-                "detail": "MACD histogram positive and Bollinger Squeeze building, but dead volume undermines reliability."
-            }, 
-            "volume": 
-            {
-                "quality": "DEAD", 
-                "ratio": 0.65, 
-                "detail": "Volume 35% below average with 41 days since last spike - no market participation or conviction."
+            'trend': {
+                'direction': 'NEUTRAL',
+                'strength': 'WEAK',
+                'detail': 'Consolidating above recent lows but below key resistance at $130, lacking conviction to establish clear direction.'
+            },
+            'momentum': {
+                'direction': 'BULLISH',
+                'strength': 'WEAK',
+                'detail': 'MACD histogram positive and Bollinger Squeeze active, but dead volume undermines reliability of momentum signals.'
+            },
+            'volume': {
+                'quality': 'DEAD',
+                'ratio': 0.65,
+                'detail': 'Volume 35% below average with 41 days since last spike - no market participation or conviction behind any moves.'
             }
         },
-
         'trade_setup': {
-            "viability": "INVALID",
-            "entry": 0, 
-            "stop_loss": 0, 
-            "take_profit": 0, 
-            "risk_reward": 0, 
-            "support": 126.53, 
-            "resistance": 130.61, 
-            "current_price": 128.4, 
-            "timeframe": 0
+            'viability': 'INVALID',
+            'entry': 0,
+            'stop_loss': 0,
+            'take_profit': 0,
+            'risk_reward': 0,
+            'support': 126.53,
+            'resistance': 130.61,
+            'current_price': 128.4,
+            'timeframe': 'N/A'
         },
-
         'action_plan': {
-            "primary": "Wait on sidelines until volume returns above 1.0x average to confirm any directional move", 
-            "alternative": "If already holding, consider reducing position size given lack of conviction", 
-            "if_in_position": "Set tight stops near $126.50 support and avoid adding until volume confirms", 
-            "avoid": "Do not chase any breakout above $130 without volume confirmation - likely false breakout"
+            'for_buyers': 'Wait on sidelines until volume returns above 1.0x average',
+            'for_sellers': 'No clear sell signal, avoid shorting in low volume',
+            'if_holding': 'Set tight stops near $126.50, avoid adding',
+            'avoid': 'Do not chase breakouts above $130 without volume confirmation'
         },
-
         'watch_list': {
-            "next_24h": ["Volume spike above 1.0x average", "Break below $126.53 support", "BTC direction and correlation strength"], 
-            "next_48h": ["Bollinger Squeeze resolution direction", "EMA20 hold or break", "Weekend volume patterns"]
+            'bullish_signals': ['Volume spike above 1.0x average', 'Break above $130.61 with volume'],
+            'bearish_signals': ['Break below $126.53 support', 'Volume drops below 0.6x']
         },
-
-        'invalidation': ["Volume drops further below 0.6x average - indicates complete market disinterest", "Break below $126.53 on any volume - invalidates base-building thesis"],
-
+        'invalidation': ['Volume drops below 0.6x - complete market disinterest', 'Break below $126.53 invalidates base-building'],
         'confidence_reasoning': {
-            "supporting": ["MACD bullish divergence", "Bollinger Squeeze building energy", "Holding above recent $122 lows"], 
-            "concerns": ["Dead volume invalidates signals", "Strong BTC correlation with bearish BTC", "Narrow range limits profit potential"], 
-            "assessment": "Dead volume is the overriding factor that makes any directional call unreliable regardless of other technical signals."
+            'supporting': 'MACD bullish divergence, Bollinger Squeeze building, holding above $122 lows',
+            'concerns': 'Dead volume invalidates signals, bearish BTC correlation, narrow range limits profit potential'
         }
     }
 
-    # SENTIMENT ANALYSIS STATE
     test_state['sentiment'] = {
-        'timestamp': '2026-01-02 13:58:23.692 +0000',
-        'signal': 'SLIGHTLY_BULLISH',
+        'timestamp': '2026-01-13T13:58:23Z',
+        'recommendation_signal': 'HOLD',
         'confidence': {
-            'analysis_confidence': 0.85,
-            'signal_strength': 0.65,
-            'interpretation': 'High confidence in bullish sentiment analysis'
-        },     
-
+            'score': 0.65,
+            'reasoning': 'Moderate confidence (0.65) - CFGI at 55 (Neutral) with high retail excitement (Social 98.5) but weak whale support (26.5). RWA momentum and Ondo partnership are bullish catalysts, but news is 10+ days old. Fresh institutional confirmation needed.'
+        },
+        'market_condition': 'NEUTRAL',
+        'thinking': 'CFGI shows neutral market at 55 with disconnect: retail very excited (Social 98.5) but institutions cautious (Whales 26.5). News is bullish (RWA momentum, Ondo partnership) but aging. Whale accumulation on Jan 1 is positive but needs volume confirmation from technicals.',
         'market_fear_greed': {
-            'score': 55, 
-            'classification': 'Neutral',  
-            'social': 98.5,  
-            'whales': 26.5,  
-            'trends': 88.5, 
-            'interpretation': 'Retail excitement without strong institutional confirmation'
+            'score': 55,
+            'classification': 'Neutral',
+            'social': 98.5,
+            'whales': 26.5,
+            'trends': 88.5,
+            'sentiment': 'NEUTRAL',
+            'confidence': 0.70,
+            'interpretation': 'Retail excitement (Social 98.5, Trends 88.5) not matched by institutional conviction (Whales 26.5) - suggests potential top if institutions dont follow'
         },
-
         'news_sentiment': {
-            'score': 0.68, 
-            'label': 'CAUTIOUSLY_BULLISH', 
-            'catalysts_count': 3, 
-            'risks_count': 1 
+            'sentiment': 'BULLISH',
+            'confidence': 0.68
         },
-
+        'combined_sentiment': {
+            'sentiment': 'NEUTRAL',
+            'confidence': 0.65
+        },
         'key_events': [
             {
-                "title": "Solana RWA Momentum Entering 2026", 
-                "type": "ECOSYSTEM", 
-                "impact": "BULLISH", 
-                "source": "CoinTelegraph", 
-                "url": "https://cointelegraph.com/news/solana-institutional-momentum-heading-2026", 
-                "published_at": "2026-01-02"
-            }, 
+                'title': 'Solana RWA Momentum Entering 2026',
+                'type': 'ECOSYSTEM',
+                'impact': 'BULLISH',
+                'source': 'CoinTelegraph',
+                'url': 'https://cointelegraph.com/news/solana-institutional-momentum-heading-2026',
+                'published_at': '2026-01-02'
+            },
             {
-                "title": "SOL Whale Accumulation on New Year's Day", 
-                "type": "MARKET_TREND", 
-                "impact": "BULLISH", 
-                "source": "Santiment", 
-                "url": "https://cointelegraph.com/news/solana-whale-accumulation-santiment-crypto-trends-2026", 
-                "published_at": "2026-01-01"
-            }, 
+                'title': 'SOL Whale Accumulation on New Years Day',
+                'type': 'ECOSYSTEM',
+                'impact': 'BULLISH',
+                'source': 'Santiment',
+                'url': 'https://cointelegraph.com/news/solana-whale-accumulation',
+                'published_at': '2026-01-01'
+            },
             {
-                "title": "Ondo Finance Tokenized US Stocks on Solana", 
-                "type": "PARTNERSHIP", 
-                "impact": "BULLISH", 
-                "source": "CoinTelegraph", 
-                "url": "https://cointelegraph.com/news/how-ondo-finance-plans-to-bring-tokenized-us-stocks-to-solana", 
-                "published_at": "2025-12-24"
+                'title': 'Ondo Finance Tokenized US Stocks on Solana',
+                'type': 'PARTNERSHIP',
+                'impact': 'BULLISH',
+                'source': 'CoinTelegraph',
+                'url': 'https://cointelegraph.com/news/ondo-finance-solana',
+                'published_at': '2025-12-24'
             }
         ],
-
-        'risk_flags': ["Potential memecoin perception challenge", "Brief stablecoin depeg on DEXs"],
-
-        'summary': 'Solana shows promising institutional momentum with Real World Asset expansion and whale accumulation. Retail excitement is high, but institutional backing remains measured. Potential for moderate upside with careful entry strategy.', 
-
-        'what_to_watch': ["RWA momentum development", "Institutional capital inflows", "Ecosystem partnership announcements"],
-
-        'invalidation': 'Significant regulatory action or prolonged network instability',  
-        'suggested_timeframe': '3-5 days',  
-        'thinking': 'Your sentiment thinking process here'  
+        'risk_flags': ['Brief stablecoin depeg on DEXs', 'Memecoin perception challenge'],
+        'what_to_watch': ['RWA momentum development', 'Institutional capital inflows', 'Fresh partnership announcements'],
+        'invalidation': 'Significant regulatory action or prolonged network instability',
+        'suggested_timeframe': '3-5 days'
     }
 
     print("=" * 80)
     print("TESTING REFLECTION AGENT")
     print("=" * 80)
     print("\n📋 Input State:")
-    tech_conf = test_state['technical']['confidence']
-    sent_conf = test_state['sentiment']['confidence']
-    print(f"  Technical: {test_state['technical']['recommendation_signal']} @ {tech_conf['setup_quality']:.0%} setup quality")
-    print(f"  Sentiment: {test_state['sentiment']['signal']} @ {sent_conf['signal_strength']:.0%} signal strength")
+    print(f"  Technical: {test_state['technical']['recommendation_signal']} @ {test_state['technical']['confidence']['score']:.0%}")
+    print(f"  Sentiment: {test_state['sentiment']['recommendation_signal']} @ {test_state['sentiment']['confidence']['score']:.0%}")
     print(f"  Volume Ratio: {test_state['technical']['analysis']['volume']['ratio']:.2f}x")
     print(f"  CFGI Score: {test_state['sentiment']['market_fear_greed']['score']}/100")
 
@@ -688,6 +617,15 @@ if __name__ == "__main__":
     agent = ReflectionAgent()
     result_state = agent.execute(test_state)
 
-  
+    print("\n📊 Reflection Output:")
+    reflection = result_state.get('reflection', {})
+    print(f"  Final Recommendation: {reflection.get('recommendation_signal', 'N/A')}")
+    print(f"  Market Condition: {reflection.get('market_condition', 'N/A')}")
+    print(f"  Final Confidence: {reflection.get('confidence', {}).get('score', 0):.0%}")
+    print(f"  Alignment Score: {reflection.get('agent_alignment', {}).get('alignment_score', 0):.2f}")
+    print(f"\n  Confidence Reasoning:")
+    print(f"  {reflection.get('confidence', {}).get('reasoning', 'N/A')}")
+    print(f"\n  Primary Risk:")
+    print(f"  {reflection.get('primary_risk', 'N/A')}")
 
     print("\n✅ Test complete!")
