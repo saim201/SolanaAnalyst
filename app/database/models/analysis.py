@@ -38,8 +38,6 @@ class SentimentAnalyst(Base):
     market_fear_greed = Column(JSON)
     news_sentiment = Column(JSON)
     combined_sentiment = Column(JSON)
-    positive_catalysts = Column(Integer)
-    negative_risks = Column(Integer)
     key_events = Column(JSON)
     risk_flags = Column(JSON)
     what_to_watch = Column(JSON)

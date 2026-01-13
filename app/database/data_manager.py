@@ -340,8 +340,6 @@ class DataManager:
             'market_fear_greed': data.get('market_fear_greed'),
             'news_sentiment': data.get('news_sentiment'),
             'combined_sentiment': data.get('combined_sentiment'),
-            'positive_catalysts': data.get('positive_catalysts'),
-            'negative_risks': data.get('negative_risks'),
             'key_events': data.get('key_events'),
             'risk_flags': data.get('risk_flags'),
             'what_to_watch': data.get('what_to_watch'),

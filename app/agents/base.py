@@ -121,8 +121,6 @@ class SentimentOutput(TypedDict):
     market_fear_greed: MarketFearGreed
     news_sentiment: NewsSentiment
     combined_sentiment: CombinedSentiment
-    positive_catalysts: int
-    negative_risks: int
     key_events: List[KeyEvent]
     risk_flags: List[str]
     what_to_watch: List[str]

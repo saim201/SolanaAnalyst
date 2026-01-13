@@ -180,9 +180,7 @@ After your thinking, output the final JSON inside <answer> tags. The JSON must f
 
     "news_sentiment": {{
         "sentiment": "BULLISH|BEARISH|NEUTRAL",
-        "confidence": 0.65,
-        "positive_catalysts": 3,
-        "negative_risks": 1
+        "confidence": 0.65
     }},
 
     "combined_sentiment": {{
@@ -320,7 +318,7 @@ class SentimentAgent(BaseAgent):
 
     def __init__(self):
         super().__init__(
-            model="claude-3-5-haiku-20241022", 
+            model="claude-haiku-4-5-20251001", 
             temperature=0.3
         )
 
@@ -343,22 +341,20 @@ class SentimentAgent(BaseAgent):
         )
 
         try:
-            # Extract thinking
             thinking_match = re.search(r'<thinking>(.*?)</thinking>', response, re.DOTALL)
             thinking = thinking_match.group(1).strip() if thinking_match else ""
 
-            # Extract JSON from answer tags
             answer_match = re.search(r'<answer>(.*?)</answer>', response, re.DOTALL)
             answer_json = answer_match.group(1).strip() if answer_match else response
 
-            # Minimal JSON cleaning
             answer_json = re.sub(r'^```json\s*|\s*```$', '', answer_json.strip())
             answer_json = answer_json[answer_json.find('{'):answer_json.rfind('}')+1] if '{' in answer_json else answer_json
 
-            # Parse and add thinking
             sentiment_data = json.loads(answer_json)
             if thinking:
                 sentiment_data['thinking'] = thinking
+            
+            sentiment_data['timestamp'] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
             state['sentiment'] = sentiment_data
 
             dm.save_sentiment_analysis(sentiment_data)
@@ -367,7 +363,6 @@ class SentimentAgent(BaseAgent):
             print(f"⚠️  Sentiment agent parsing error: {e}")
             print(f"Response: {response[:300]}")
 
-            # Simplified fallback
             state['sentiment'] = {
                 "recommendation_signal": "HOLD",
                 "market_condition": "NEUTRAL",
@@ -387,8 +382,6 @@ class SentimentAgent(BaseAgent):
                     "sentiment": "NEUTRAL",
                     "confidence": 0.5
                 },
-                "positive_catalysts": 0,
-                "negative_risks": 0,
                 "key_events": [],
                 "risk_flags": ["Parsing error"],
                 "what_to_watch": [],

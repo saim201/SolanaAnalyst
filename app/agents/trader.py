@@ -78,8 +78,6 @@ TRADER_PROMPT = """
 
 **Key Factors:**
 - Fear & Greed Index: {cfgi_score}/100 ({cfgi_classification})
-- Positive Catalysts: {positive_catalysts}
-- Negative Risks: {negative_risks}
 
 **Key Events:**
 {sentiment_key_events_formatted}
@@ -452,9 +450,6 @@ class TraderAgent(BaseAgent):
         cfgi_score = cfgi_data.get('score', 50)
         cfgi_classification = cfgi_data.get('classification', 'Neutral')
 
-        positive_catalysts = sentiment.get('positive_catalysts', 0)
-        negative_risks = sentiment.get('negative_risks', 0)
-
         sentiment_key_events = sentiment.get('key_events', [])
         sentiment_key_events_formatted = "\n".join([f"- {e.get('title', 'Unknown')} ({e.get('source', 'Unknown')}, {e.get('date', 'Unknown')})" for e in sentiment_key_events]) if sentiment_key_events else "- None"
 
@@ -499,8 +494,6 @@ class TraderAgent(BaseAgent):
             sentiment_summary=sentiment_summary,
             cfgi_score=cfgi_score,
             cfgi_classification=cfgi_classification,
-            positive_catalysts=positive_catalysts,
-            negative_risks=negative_risks,
             sentiment_key_events_formatted=sentiment_key_events_formatted,
             sentiment_risk_flags_formatted=sentiment_risk_flags_formatted,
             sentiment_confidence_reasoning=sentiment_confidence_reasoning,
@@ -540,6 +533,8 @@ class TraderAgent(BaseAgent):
             # Parse and save
             trader_data = json.loads(answer_json)
             trader_data['thinking'] = thinking
+            timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            trader_data['timestamp'] = timestamp
             state['trader'] = trader_data
 
             with DataManager() as dm:
@@ -642,8 +637,6 @@ if __name__ == "__main__":
             'score': 72,
             'classification': 'Greed'
         },
-        'positive_catalysts': 2,
-        'negative_risks': 0,
         'key_events': [
             {'title': 'Morgan Stanley ETF filing', 'source': 'CoinDesk', 'date': 'Jan 6'},
             {'title': 'Ondo Finance partnership', 'source': 'Official', 'date': 'Dec 24'}

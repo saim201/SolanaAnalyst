@@ -69,8 +69,6 @@ def get_latest_analysis():
             "market_fear_greed": sentiment.market_fear_greed,
             "news_sentiment": sentiment.news_sentiment,
             "combined_sentiment": sentiment.combined_sentiment,
-            "positive_catalysts": sentiment.positive_catalysts,
-            "negative_risks": sentiment.negative_risks,
             "key_events": sentiment.key_events or [],
             "risk_flags": sentiment.risk_flags or [],
             "what_to_watch": sentiment.what_to_watch or [],
