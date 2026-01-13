@@ -195,3 +195,32 @@ def get_analysis_progress(job_id: str):
         "progress": progress
     }
 
+
+@router.get("/sol/analyse/completion-timestamp")
+def get_analysis_completion_timestamp():
+    db = None
+    try:
+        db = get_db_session()
+
+        from app.database.models.progress import AnalysisProgress
+        latest_completion = db.query(AnalysisProgress).filter(
+            AnalysisProgress.step == 'complete',
+            AnalysisProgress.status == 'completed'
+        ).order_by(AnalysisProgress.timestamp.desc()).first()
+
+        if not latest_completion:
+            raise HTTPException(status_code=404, detail="No completed analysis found")
+
+        return {
+            "timestamp": latest_completion.timestamp.isoformat(),
+            "job_id": latest_completion.job_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch completion timestamp: {str(e)}")
+    finally:
+        if db:
+            db.close()
+

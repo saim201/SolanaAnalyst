@@ -1,8 +1,4 @@
-"""
-PostgreSQL-based progress storage for analysis jobs.
-Works with Lambda by persisting progress to database during execution.
-Frontend can poll progress from database in real-time.
-"""
+
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
@@ -11,10 +7,8 @@ from app.database.config import get_db_session
 
 
 class ProgressStore:
-    """PostgreSQL-backed store for progress updates"""
 
     def add_progress(self, job_id: str, step: str, status: str, message: str):
-        """Add a progress update for a job - writes to PostgreSQL"""
         db = get_db_session()
         try:
             progress = AnalysisProgress(
@@ -33,7 +27,6 @@ class ProgressStore:
             db.close()
 
     def get_progress(self, job_id: str) -> List[dict]:
-        """Get all progress updates for a job from PostgreSQL"""
         db = get_db_session()
         try:
             progress_records = db.query(AnalysisProgress).filter(
@@ -56,7 +49,6 @@ class ProgressStore:
             db.close()
 
     def clear_progress(self, job_id: str):
-        """Clear progress for a job from PostgreSQL"""
         db = get_db_session()
         try:
             db.query(AnalysisProgress).filter(
@@ -70,7 +62,6 @@ class ProgressStore:
             db.close()
 
     def cleanup_old_progress(self, days: int = 1):
-        """Clean up progress records older than specified days"""
         db = get_db_session()
         try:
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
@@ -85,5 +76,4 @@ class ProgressStore:
             db.close()
 
 
-# Global instance
 progress_store = ProgressStore()
