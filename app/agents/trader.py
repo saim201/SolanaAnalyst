@@ -546,7 +546,7 @@ class TraderAgent(BaseAgent):
         try:
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=3500,
+                max_tokens=4000,
                 temperature=self.temperature,
                 messages=[{"role": "user", "content": full_prompt}],
                 extra_headers={"anthropic-beta": "structured-outputs-2025-11-13"},
