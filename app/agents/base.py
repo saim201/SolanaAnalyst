@@ -174,7 +174,6 @@ class ReflectionOutput(TypedDict):
 
 # TRADER AGENT OUTPUT
 class FinalVerdict(TypedDict):
-    summary: str
     technical_says: str
     sentiment_says: str
     reflection_says: str

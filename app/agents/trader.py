@@ -49,10 +49,6 @@ TRADER_DECISION_SCHEMA = {
         "final_verdict": {
             "type": "object",
             "properties": {
-                "summary": {
-                    "type": "string",
-                    "description": "2-3 sentences: big picture of market, main opportunity or concern, why this recommendation makes sense"
-                },
                 "technical_says": {
                     "type": "string",
                     "description": "Technical recommendation with confidence and brief key point"
@@ -70,7 +66,7 @@ TRADER_DECISION_SCHEMA = {
                     "description": "2-3 sentences: YOUR final call, why weighted this way, deciding factor, why right decision"
                 }
             },
-            "required": ["summary", "technical_says", "sentiment_says", "reflection_says", "my_decision"],
+            "required": ["technical_says", "sentiment_says", "reflection_says", "my_decision"],
             "additionalProperties": False
         },
         "trade_setup": {
@@ -546,7 +542,7 @@ class TraderAgent(BaseAgent):
         try:
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=4000,
+                max_tokens=6000,
                 temperature=self.temperature,
                 messages=[{"role": "user", "content": full_prompt}],
                 extra_headers={"anthropic-beta": "structured-outputs-2025-11-13"},

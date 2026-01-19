@@ -1,4 +1,4 @@
-# technical.py - optimised for Sonnet 4.5
+# technical.py 
 
 import sys
 import os

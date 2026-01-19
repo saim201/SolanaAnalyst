@@ -415,7 +415,7 @@ class ReflectionAgent(BaseAgent):
 
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=4000,
+            max_tokens=5000,
             temperature=self.temperature,
             messages=[{"role": "user", "content": full_prompt}],
             extra_headers={"anthropic-beta": "structured-outputs-2025-11-13"},

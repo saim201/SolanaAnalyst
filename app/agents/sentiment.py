@@ -1,4 +1,4 @@
-# sentiment.py - Optimised for Claude Haiku 4.5
+# sentiment.py 
 
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -294,7 +294,7 @@ class SentimentAgent(BaseAgent):
 
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=2500,
+            max_tokens=4000,
             temperature=self.temperature,
             messages=[{"role": "user", "content": full_prompt}],
             extra_headers={"anthropic-beta": "structured-outputs-2025-11-13"},
